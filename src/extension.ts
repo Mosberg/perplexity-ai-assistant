@@ -1,13 +1,26 @@
-import * as path from "path";
 import * as vscode from "vscode";
 import { PerplexityCustomChatProvider } from "./chatProvider";
+import { CodeActionsProvider } from "./codeActionsProvider";
+import { CommitAssistant } from "./commitAssistant";
+import { PerplexityCompletionProvider } from "./completionProvider";
 import { PerplexitySettingsProvider } from "./settingsProvider";
+
+// Removed local stub classes for CodeActionsProvider, CommitAssistant, and PerplexityCompletionProvider
+// Using imported implementations instead
+
+// The following imports are now used directly
+// import { CodeActionsProvider } from "./codeActionsProvider";
+// import { CommitAssistant } from "./commitAssistant";
+// import { PerplexityCompletionProvider } from "./completionProvider";
 
 let chatViewRegistered = false;
 
 export function activate(context: vscode.ExtensionContext) {
+  console.log("Perplexity AI Assistant is now active!");
+
   vscode.commands.executeCommand("setContext", "perplexity-ai.enabled", true);
 
+  // Initialize Providers
   const chatProvider = new PerplexityCustomChatProvider(
     context.extensionUri,
     context
@@ -16,8 +29,11 @@ export function activate(context: vscode.ExtensionContext) {
     context.extensionUri,
     context
   );
+  const completionProvider = new PerplexityCompletionProvider(context);
+  const commitAssistant = new CommitAssistant(context);
+  const codeActionsProvider = new CodeActionsProvider(context);
 
-  // Prevent double registration of the chat view
+  // Register Chat View Provider
   if (!chatViewRegistered) {
     const registration = vscode.window.registerWebviewViewProvider(
       PerplexityCustomChatProvider.viewType,
@@ -28,26 +44,30 @@ export function activate(context: vscode.ExtensionContext) {
     chatViewRegistered = true;
   }
 
+  // Register Inline Completion Provider
+  const completionDisposable =
+    vscode.languages.registerInlineCompletionItemProvider(
+      { pattern: "**" },
+      completionProvider
+    );
+  context.subscriptions.push(completionDisposable);
+
+  // Register Code Actions Provider
+  const codeActionsDisposable = vscode.languages.registerCodeActionsProvider(
+    { pattern: "**" },
+    codeActionsProvider,
+    {
+      providedCodeActionKinds: CodeActionsProvider.providedCodeActionKinds,
+    }
+  );
+  context.subscriptions.push(codeActionsDisposable);
+
+  // Register Commands
   const commands = [
+    // Chat Commands
     vscode.commands.registerCommand("perplexity-ai.ask", () =>
       askPerplexity(context)
     ),
-    vscode.commands.registerCommand("perplexity-ai.testView", async () => {
-      await vscode.commands.executeCommand(
-        "workbench.view.extension.perplexity-chat"
-      );
-    }),
-    vscode.commands.registerCommand("perplexity-ai.showView", async () => {
-      try {
-        await vscode.commands.executeCommand(
-          "workbench.view.extension.perplexity-chat"
-        );
-        await new Promise((resolve) => setTimeout(resolve, 200));
-        await vscode.commands.executeCommand("perplexity-chatView.focus");
-      } catch (error) {
-        console.error("Error showing view:", error);
-      }
-    }),
     vscode.commands.registerCommand("perplexity-ai.askStreaming", () =>
       askPerplexityWithStreaming(context)
     ),
@@ -58,6 +78,8 @@ export function activate(context: vscode.ExtensionContext) {
       "perplexity-ai.askWithWorkspaceContext",
       () => askWithWorkspaceContext(context)
     ),
+
+    // Code Actions
     vscode.commands.registerCommand("perplexity-ai.explainCode", () =>
       explainSelectedCode(context)
     ),
@@ -73,9 +95,47 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("perplexity-ai.refactorCode", () =>
       refactorCode(context)
     ),
-    vscode.commands.registerCommand("perplexity-ai.openSettings", () =>
-      settingsProvider.show()
+    vscode.commands.registerCommand("perplexity-ai.generateTests", () =>
+      generateTests(context)
     ),
+    vscode.commands.registerCommand("perplexity-ai.convertCode", () =>
+      convertCode(context)
+    ),
+    vscode.commands.registerCommand("perplexity-ai.reviewCode", () =>
+      reviewCode(context)
+    ),
+
+    // Completion Commands
+    vscode.commands.registerCommand("perplexity-ai.enableCompletion", () => {
+      vscode.workspace
+        .getConfiguration("perplexityAI")
+        .update("completionEnabled", true, vscode.ConfigurationTarget.Global);
+      vscode.window.showInformationMessage(
+        "Perplexity inline completions enabled"
+      );
+    }),
+    vscode.commands.registerCommand("perplexity-ai.disableCompletion", () => {
+      vscode.workspace
+        .getConfiguration("perplexityAI")
+        .update("completionEnabled", false, vscode.ConfigurationTarget.Global);
+      vscode.window.showInformationMessage(
+        "Perplexity inline completions disabled"
+      );
+    }),
+
+    // Commit Assistant Commands
+    vscode.commands.registerCommand("perplexity-ai.generateCommit", () =>
+      commitAssistant.generateCommitMessage()
+    ),
+    vscode.commands.registerCommand(
+      "perplexity-ai.generateCommitForStaged",
+      () => commitAssistant.generateCommitForStaged()
+    ),
+    vscode.commands.registerCommand("perplexity-ai.analyzeChanges", () =>
+      commitAssistant.analyzeChanges()
+    ),
+
+    // Session Management
     vscode.commands.registerCommand("perplexity-ai.newChat", async () => {
       try {
         await vscode.commands.executeCommand(
@@ -108,11 +168,159 @@ export function activate(context: vscode.ExtensionContext) {
         );
       }
     }),
+    // Remove exportCurrentChat if not implemented in chatProvider
+    // vscode.commands.registerCommand("perplexity-ai.exportChat", () =>
+    //   chatProvider.exportCurrentChat()
+    // ),
+    vscode.commands.registerCommand("perplexity-ai.openSettings", () =>
+      settingsProvider.show()
+    ),
+
+    // Model Selection
+    vscode.commands.registerCommand("perplexity-ai.selectModel", () =>
+      selectModel(context)
+    ),
   ];
 
   context.subscriptions.push(...commands);
+
+  // Status Bar Item
+  const statusBarItem = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Right,
+    100
+  );
+  statusBarItem.text = "$(hubot) Perplexity";
+  statusBarItem.tooltip = "Click to open Perplexity AI";
+  statusBarItem.command = "perplexity-ai.newChat";
+  statusBarItem.show();
+  context.subscriptions.push(statusBarItem);
 }
 
+// Model Selection
+async function selectModel(_context: vscode.ExtensionContext) {
+  const models = [
+    { label: "sonar", description: "Fast and cost-effective", model: "sonar" },
+    {
+      label: "sonar-pro",
+      description: "Enhanced capabilities",
+      model: "sonar-pro",
+    },
+    {
+      label: "sonar-reasoning",
+      description: "Advanced reasoning",
+      model: "sonar-reasoning",
+    },
+    {
+      label: "llama-3.1-sonar-small-128k-online",
+      description: "Small context window",
+      model: "llama-3.1-sonar-small-128k-online",
+    },
+    {
+      label: "llama-3.1-sonar-large-128k-online",
+      description: "Large context window",
+      model: "llama-3.1-sonar-large-128k-online",
+    },
+    {
+      label: "llama-3.1-sonar-huge-128k-online",
+      description: "Huge context window",
+      model: "llama-3.1-sonar-huge-128k-online",
+    },
+  ];
+
+  const selected = await vscode.window.showQuickPick(models, {
+    placeHolder: "Select Perplexity AI Model",
+  });
+
+  if (selected) {
+    await vscode.workspace
+      .getConfiguration("perplexityAI")
+      .update("model", selected.model, vscode.ConfigurationTarget.Global);
+    vscode.window.showInformationMessage(`Model changed to: ${selected.label}`);
+  }
+}
+
+// Generate Tests
+async function generateTests(context: vscode.ExtensionContext) {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    return;
+  }
+
+  const selection = editor.selection;
+  const selectedText = editor.document.getText(selection);
+
+  if (!selectedText) {
+    vscode.window.showWarningMessage("No code selected");
+    return;
+  }
+
+  const apiKey = await getApiKey(context);
+  if (!apiKey) {
+    return;
+  }
+
+  const prompt = `Generate comprehensive unit tests for this code. Use appropriate testing framework for the language:\n\n\`\`\`${editor.document.languageId}\n${selectedText}\n\`\`\``;
+  await executeCodeCommand(apiKey, prompt, "Test Generation");
+}
+
+// Convert Code
+async function convertCode(context: vscode.ExtensionContext) {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    return;
+  }
+
+  const selection = editor.selection;
+  const selectedText = editor.document.getText(selection);
+
+  if (!selectedText) {
+    vscode.window.showWarningMessage("No code selected");
+    return;
+  }
+
+  const targetLanguage = await vscode.window.showInputBox({
+    prompt: "Target programming language",
+    placeHolder: "e.g., Python, Java, TypeScript",
+  });
+
+  if (!targetLanguage) {
+    return;
+  }
+
+  const apiKey = await getApiKey(context);
+  if (!apiKey) {
+    return;
+  }
+
+  const prompt = `Convert this ${editor.document.languageId} code to ${targetLanguage}. Maintain functionality and add comments explaining the conversion:\n\n\`\`\`${editor.document.languageId}\n${selectedText}\n\`\`\``;
+  await executeCodeCommand(apiKey, prompt, "Code Conversion");
+}
+
+// Review Code
+async function reviewCode(context: vscode.ExtensionContext) {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    return;
+  }
+
+  const selection = editor.selection;
+  const selectedText = editor.document.getText(selection);
+
+  if (!selectedText) {
+    vscode.window.showWarningMessage("No code selected");
+    return;
+  }
+
+  const apiKey = await getApiKey(context);
+  if (!apiKey) {
+    return;
+  }
+
+  const prompt = `Provide a comprehensive code review for this code. Include:\n1. Code quality assessment\n2. Best practices adherence\n3. Performance considerations\n4. Security concerns\n5. Suggestions for improvement\n\n\`\`\`${editor.document.languageId}\n${selectedText}\n\`\`\``;
+  await executeCodeCommand(apiKey, prompt, "Code Review");
+}
+
+// Existing functions (optimizeCode, findBugs, etc.)
 async function optimizeCode(context: vscode.ExtensionContext) {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
@@ -132,12 +340,7 @@ async function optimizeCode(context: vscode.ExtensionContext) {
     return;
   }
 
-  const prompt = `Optimize this code for better performance and readability. Provide the optimized version with explanations:
-
-\`\`\`${editor.document.languageId}
-${selectedText}
-\`\`\``;
-
+  const prompt = `Optimize this code for better performance and readability. Provide the optimized version with explanations:\n\n\`\`\`${editor.document.languageId}\n${selectedText}\n\`\`\``;
   await executeCodeCommand(apiKey, prompt, "Code Optimization");
 }
 
@@ -160,12 +363,7 @@ async function findBugs(context: vscode.ExtensionContext) {
     return;
   }
 
-  const prompt = `Analyze this code for potential bugs, security issues, and code smells. Provide detailed explanations and fixes:
-
-\`\`\`${editor.document.languageId}
-${selectedText}
-\`\`\``;
-
+  const prompt = `Analyze this code for potential bugs, security issues, and code smells. Provide detailed explanations and fixes:\n\n\`\`\`${editor.document.languageId}\n${selectedText}\n\`\`\``;
   await executeCodeCommand(apiKey, prompt, "Bug Analysis");
 }
 
@@ -188,12 +386,7 @@ async function generateComments(context: vscode.ExtensionContext) {
     return;
   }
 
-  const prompt = `Add comprehensive comments and documentation to this code. Include function descriptions, parameter explanations, and inline comments:
-
-\`\`\`${editor.document.languageId}
-${selectedText}
-\`\`\``;
-
+  const prompt = `Add comprehensive comments and documentation to this code. Include function descriptions, parameter explanations, and inline comments:\n\n\`\`\`${editor.document.languageId}\n${selectedText}\n\`\`\``;
   await executeCodeCommand(apiKey, prompt, "Code Documentation");
 }
 
@@ -216,12 +409,7 @@ async function refactorCode(context: vscode.ExtensionContext) {
     return;
   }
 
-  const prompt = `Refactor this code following best practices. Improve code structure, naming conventions, and maintainability:
-
-\`\`\`${editor.document.languageId}
-${selectedText}
-\`\`\``;
-
+  const prompt = `Refactor this code following best practices. Improve code structure, naming conventions, and maintainability:\n\n\`\`\`${editor.document.languageId}\n${selectedText}\n\`\`\``;
   await executeCodeCommand(apiKey, prompt, "Code Refactoring");
 }
 
@@ -236,7 +424,7 @@ async function executeCodeCommand(
       title: `${title} in progress...`,
       cancellable: false,
     },
-    async (_progress) => {
+    async (progress) => {
       try {
         const response = await queryPerplexityAPI(apiKey, prompt);
         showResponseInNewDocument(response, title);
@@ -266,12 +454,7 @@ async function explainSelectedCode(context: vscode.ExtensionContext) {
     return;
   }
 
-  const prompt = `Explain this code in detail, including what it does, how it works, and any important concepts:
-
-\`\`\`${editor.document.languageId}
-${selectedText}
-\`\`\``;
-
+  const prompt = `Explain this code in detail, including what it does, how it works, and any important concepts:\n\n\`\`\`${editor.document.languageId}\n${selectedText}\n\`\`\``;
   await executeCodeCommand(apiKey, prompt, "Code Explanation");
 }
 
@@ -279,19 +462,16 @@ async function getApiKey(
   context: vscode.ExtensionContext
 ): Promise<string | undefined> {
   let apiKey = await context.secrets.get("perplexity-api-key");
-
   if (!apiKey) {
     apiKey = await vscode.window.showInputBox({
       prompt: "Enter your Perplexity API Key",
       password: true,
       ignoreFocusOut: true,
     });
-
     if (apiKey) {
       await context.secrets.store("perplexity-api-key", apiKey);
     }
   }
-
   return apiKey;
 }
 
@@ -369,6 +549,7 @@ async function askPerplexityWithStreaming(context: vscode.ExtensionContext) {
           );
           editBuilder.replace(fullRange, fullContent);
         });
+
         const lastLine = editor.document.lineCount - 1;
         const lastPos = new vscode.Position(lastLine, 0);
         editor.revealRange(new vscode.Range(lastPos, lastPos));
@@ -417,23 +598,18 @@ async function askWithFileContext(context: vscode.ExtensionContext) {
   let contextPrompt = question;
 
   if (editor) {
-    const fileName = path.basename(editor.document.fileName);
+    const fileName = editor.document.fileName.split("/").pop() || "file";
     const fileContent = editor.document.getText();
     const language = editor.document.languageId;
     const maxContentLength = 5000;
+
     const truncatedContent =
       fileContent.length > maxContentLength
         ? fileContent.substring(0, maxContentLength) +
           "\n\n... (file truncated)"
         : fileContent;
 
-    contextPrompt = `I'm working on a ${language} file called "${fileName}". Here's the current file content:
-
-\`\`\`${language}
-${truncatedContent}
-\`\`\`
-
-Question: ${question}`;
+    contextPrompt = `I'm working on a ${language} file called "${fileName}". Here's the current file content:\n\n\`\`\`${language}\n${truncatedContent}\n\`\`\`\n\nQuestion: ${question}`;
   } else {
     vscode.window.showWarningMessage(
       "No active editor found. Using question without file context."
@@ -489,15 +665,7 @@ async function askWithWorkspaceContext(context: vscode.ExtensionContext) {
     try {
       const packageJson = await vscode.workspace.fs.readFile(packageJsonUri);
       const packageData = JSON.parse(packageJson.toString());
-      projectInfo = `Project: ${packageData.name || "Unknown"}
-Description: ${packageData.description || "No description"}
-Version: ${packageData.version || "Unknown"}
-Dependencies: ${
-        Object.keys(packageData.dependencies || {}).join(", ") || "None"
-      }
-Dev Dependencies: ${
-        Object.keys(packageData.devDependencies || {}).join(", ") || "None"
-      }`;
+      projectInfo = `Project: ${packageData.name || "Unknown"}\nDescription: ${packageData.description || "No description"}\nVersion: ${packageData.version || "Unknown"}\nDependencies: ${Object.keys(packageData.dependencies || {}).join(", ") || "None"}\nDev Dependencies: ${Object.keys(packageData.devDependencies || {}).join(", ") || "None"}`;
     } catch {
       projectInfo =
         "No package.json found or unable to read project information";
@@ -510,7 +678,7 @@ Dev Dependencies: ${
     );
 
     const fileList = files
-      .map((file) => path.relative(workspaceFolders[0].uri.fsPath, file.fsPath))
+      .map((file) => vscode.workspace.asRelativePath(file))
       .slice(0, 30)
       .join("\n");
 
@@ -524,22 +692,7 @@ Dev Dependencies: ${
       readmeContent = readme.toString().substring(0, 2000);
     } catch {}
 
-    const contextPrompt = `I'm working on a project with the following information:
-
-## Project Information
-${projectInfo}
-
-## Key Files in Project (showing up to 30 files)
-${fileList}
-
-${
-  readmeContent
-    ? `## README Content (first 2000 characters)\n${readmeContent}`
-    : ""
-}
-
-## Question
-${question}`;
+    const contextPrompt = `I'm working on a project with the following information:\n\n## Project Information\n${projectInfo}\n\n## Key Files in Project (showing up to 30 files)\n${fileList}\n\n${readmeContent ? `## README Content (first 2000 characters)\n${readmeContent}` : ""}\n\n## Question\n${question}`;
 
     await vscode.window.withProgress(
       {
@@ -564,8 +717,8 @@ async function queryPerplexityAPIStream(
   onComplete?: () => void
 ): Promise<void> {
   const config = vscode.workspace.getConfiguration("perplexityAI");
-  const model = config.get<string>("model", "sonar");
-  const maxTokens = config.get<number>("maxTokens", 2000);
+  const model = config.get("model", "sonar");
+  const maxTokens = config.get("maxTokens", 2000);
 
   try {
     const response = await fetch("https://api.perplexity.ai/chat/completions", {
@@ -577,7 +730,7 @@ async function queryPerplexityAPIStream(
       body: JSON.stringify({
         model,
         messages: [{ role: "user", content: prompt }],
-        maxTokens,
+        maxTokens: maxTokens,
         temperature: 0.2,
         stream: true,
       }),
@@ -604,8 +757,10 @@ async function queryPerplexityAPIStream(
           onComplete?.();
           break;
         }
+
         const chunk = decoder.decode(value, { stream: true });
         const lines = chunk.split("\n");
+
         for (const line of lines) {
           if (line.startsWith("data: ") && !line.includes("[DONE]")) {
             try {
@@ -636,28 +791,30 @@ async function queryPerplexityAPI(
   prompt: string
 ): Promise<string> {
   const config = vscode.workspace.getConfiguration("perplexityAI");
-  const model = config.get<string>("model", "sonar");
-  const maxTokens = config.get<number>("maxTokens", 2000);
+  const model = config.get("model", "sonar");
+  const maxTokens = config.get("maxTokens", 2000);
 
   try {
     const response = await fetch("https://api.perplexity.ai/chat/completions", {
       method: "POST",
       headers: {
         authorization: `Bearer ${apiKey}`,
-        contentType: "application/json",
+        "content-type": "application/json",
       },
       body: JSON.stringify({
         model,
         messages: [{ role: "user", content: prompt }],
-        maxTokens,
+        max_tokens: maxTokens,
         temperature: 0.2,
         stream: false,
       }),
     });
+
     if (!response.ok) {
       const errorBody = await response.text();
       throw new Error(errorBody);
     }
+
     const data = (await response.json()) as PerplexityResponse;
     return data.choices[0]?.message?.content || "No response received";
   } catch (error) {
@@ -670,6 +827,7 @@ async function showResponseInNewDocument(content: string, title: string) {
     content: `# ${title}\n\n${content}`,
     language: "markdown",
   });
+
   await vscode.window.showTextDocument(doc, {
     viewColumn: vscode.ViewColumn.Beside,
   });

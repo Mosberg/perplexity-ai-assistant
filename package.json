@@ -1,44 +1,29 @@
 {
-  "name": "perplexity-ai-assistant",
-  "displayName": "Perplexity AI Assistant",
-  "publisher": "Mosberg",
-  "description": "AI-powered coding assistant using Perplexity, integrated into VS Code.",
-  "version": "1.0.0",
-  "icon": "assets/perplexity.png",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Mosberg/perplexity-ai-assistant"
-  },
-  "engines": {
-    "vscode": "^1.107.1"
-  },
-  "categories": [
-    "AI",
-    "Programming Languages",
-    "Snippets"
-  ],
-  "keywords": [
-    "AI",
-    "Assistant",
-    "Perplexity",
-    "ChatGPT",
-    "Coding",
-    "Code",
-    "Programming",
-    "Developer",
-    "Copilot",
-    "CoreBytes"
-  ],
-  "main": "./out/extension.js",
-  "activationEvents": [],
   "contributes": {
     "configuration": {
       "title": "Perplexity AI",
       "properties": {
         "perplexityAI.model": {
           "type": "string",
-          "default": "llama-3.1-sonar-small-128k-online",
-          "description": "Default Perplexity AI model"
+          "default": "sonar",
+          "enum": [
+            "sonar",
+            "sonar-pro",
+            "sonar-reasoning",
+            "llama-3.1-sonar-small-128k-online",
+            "llama-3.1-sonar-large-128k-online",
+            "llama-3.1-sonar-huge-128k-online"
+          ],
+          "description": "Default Perplexity AI model for chat"
+        },
+        "perplexityAI.completionModel": {
+          "type": "string",
+          "default": "sonar",
+          "enum": [
+            "sonar",
+            "sonar-pro"
+          ],
+          "description": "Model for inline code completions (lighter models recommended)"
         },
         "perplexityAI.maxTokens": {
           "type": "number",
@@ -47,198 +32,104 @@
         },
         "perplexityAI.currentMode": {
           "type": "string",
-          "enum": [
-            "ask",
-            "code",
-            "debug"
-          ],
+          "enum": ["ask", "code", "debug"],
           "default": "ask",
           "description": "Default chat mode"
+        },
+        "perplexityAI.completionEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable inline code completions"
+        },
+        "perplexityAI.completionDebounceMs": {
+          "type": "number",
+          "default": 500,
+          "minimum": 100,
+          "maximum": 2000,
+          "description": "Debounce time for completions in milliseconds"
+        },
+        "perplexityAI.temperature": {
+          "type": "number",
+          "default": 0.2,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Temperature for AI responses (0-1, lower = more focused)"
         }
       }
-    },
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "perplexity-chat",
-          "title": "Perplexity AI",
-          "icon": "assets/perplexity.svg"
-        }
-      ]
-    },
-    "views": {
-      "perplexity-chat": [
-        {
-          "id": "perplexity-chatView",
-          "name": "Chat",
-          "icon": "$(comment-discussion)",
-          "type": "webview"
-        }
-      ]
     },
     "commands": [
       {
-        "command": "perplexity-ai.ask",
-        "title": "Ask Question",
-        "icon": "$(comment-discussion)"
+        "command": "perplexity-ai.generateCommit",
+        "title": "Generate Commit Message",
+        "icon": "$(git-commit)"
       },
       {
-        "command": "perplexity-ai.newChat",
-        "title": "New Chat",
-        "icon": "$(add)"
+        "command": "perplexity-ai.generateCommitForStaged",
+        "title": "Generate Commit for Staged Changes",
+        "icon": "$(git-commit)"
       },
       {
-        "command": "perplexity-ai.askWithFileContext",
-        "title": "Ask with File Context",
-        "icon": "$(file-code)"
+        "command": "perplexity-ai.analyzeChanges",
+        "title": "Analyze Git Changes",
+        "icon": "$(search)"
       },
       {
-        "command": "perplexity-ai.askStreaming",
-        "title": "Ask Question (Streaming)",
-        "icon": "$(output)"
+        "command": "perplexity-ai.enableCompletion",
+        "title": "Enable Inline Completions"
       },
       {
-        "command": "perplexity-ai.explainCode",
-        "title": "Explain Selected Code",
-        "icon": "$(question)"
+        "command": "perplexity-ai.disableCompletion",
+        "title": "Disable Inline Completions"
       },
       {
-        "command": "perplexity-ai.optimizeCode",
-        "title": "Optimize Code",
-        "icon": "$(rocket)"
+        "command": "perplexity-ai.generateTests",
+        "title": "Generate Unit Tests",
+        "icon": "$(beaker)"
       },
       {
-        "command": "perplexity-ai.findBugs",
-        "title": "Find Bugs",
-        "icon": "$(bug)"
-      },
-      {
-        "command": "perplexity-ai.generateComments",
-        "title": "Generate Comments",
-        "icon": "$(comment)"
-      },
-      {
-        "command": "perplexity-ai.refactorCode",
-        "title": "Refactor Code",
+        "command": "perplexity-ai.convertCode",
+        "title": "Convert Code to Another Language",
         "icon": "$(symbol-method)"
       },
       {
-        "command": "perplexity-ai.askWithWorkspaceContext",
-        "title": "Ask with Workspace Context",
-        "icon": "$(folder)"
+        "command": "perplexity-ai.reviewCode",
+        "title": "Review Code",
+        "icon": "$(checklist)"
       },
       {
-        "command": "perplexity-ai.openSettings",
-        "title": "Open Settings",
+        "command": "perplexity-ai.selectModel",
+        "title": "Select AI Model",
         "icon": "$(settings-gear)"
       },
       {
-        "command": "perplexity-ai.clearHistory",
-        "title": "Clear Chat History",
-        "icon": "$(clear-all)"
-      },
-      {
-        "command": "perplexity-ai.chatHistory",
-        "title": "Chat History",
-        "icon": "$(history)"
-      }
-    ],
-    "submenus": [
-      {
-        "id": "perplexity-ai.submenu",
-        "label": "Perplexity AI"
+        "command": "perplexity-ai.exportChat",
+        "title": "Export Chat Session",
+        "icon": "$(export)"
       }
     ],
     "menus": {
-      "view/title": [
+      "scm/title": [
         {
-          "command": "perplexity-ai.newChat",
-          "when": "view == perplexity-chatView",
-          "group": "navigation@1"
-        },
-        {
-          "command": "perplexity-ai.chatHistory",
-          "when": "view == perplexity-chatView",
-          "group": "navigation@2"
-        },
-        {
-          "command": "perplexity-ai.openSettings",
-          "when": "view == perplexity-chatView",
-          "group": "navigation@3"
-        },
-        {
-          "command": "perplexity-ai.clearHistory",
-          "when": "view == perplexity-chatView",
-          "group": "navigation@4"
-        }
-      ],
-      "editor/context": [
-        {
-          "submenu": "perplexity-ai.submenu",
-          "when": "editorTextFocus",
-          "group": "perplexity"
+          "command": "perplexity-ai.generateCommit",
+          "group": "navigation",
+          "when": "scmProvider == git"
         }
       ],
       "perplexity-ai.submenu": [
         {
-          "command": "perplexity-ai.explainCode",
+          "command": "perplexity-ai.generateTests",
           "when": "editorHasSelection",
-          "group": "1_code@1"
+          "group": "1_code@6"
         },
         {
-          "command": "perplexity-ai.optimizeCode",
+          "command": "perplexity-ai.convertCode",
           "when": "editorHasSelection",
-          "group": "1_code@2"
+          "group": "1_code@7"
         },
         {
-          "command": "perplexity-ai.findBugs",
+          "command": "perplexity-ai.reviewCode",
           "when": "editorHasSelection",
-          "group": "1_code@3"
-        },
-        {
-          "command": "perplexity-ai.generateComments",
-          "when": "editorHasSelection",
-          "group": "1_code@4"
-        },
-        {
-          "command": "perplexity-ai.refactorCode",
-          "when": "editorHasSelection",
-          "group": "1_code@5"
-        },
-        {
-          "command": "perplexity-ai.ask",
-          "group": "2_general@1"
-        },
-        {
-          "command": "perplexity-ai.askStreaming",
-          "group": "2_general@2"
-        },
-        {
-          "command": "perplexity-ai.askWithFileContext",
-          "group": "2_general@3"
-        },
-        {
-          "command": "perplexity-ai.askWithWorkspaceContext",
-          "group": "2_general@4"
-        },
-        {
-          "command": "perplexity-ai.newChat",
-          "group": "3_chat@1"
-        },
-        {
-          "command": "perplexity-ai.clearHistory",
-          "group": "3_chat@2"
-        }
-      ],
-      "commandPalette": [
-        {
-          "command": "perplexity-ai.ask"
-        },
-        {
-          "command": "perplexity-ai.askStreaming"
-        },
-        {
-          "command": "perplexity-ai.openSettings"
+          "group": "1_code@8"
         }
       ]
     }
@@ -264,5 +155,9 @@
     "prettier": "^3.7.4",
     "prettier-eslint": "^16.4.2",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@ai-sdk/perplexity": "^3.0.2",
+    "@perplexity-ai/perplexity_ai": "^0.18.2"
   }
 }
