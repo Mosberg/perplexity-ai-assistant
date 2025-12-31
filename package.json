@@ -1,17 +1,21 @@
 {
-  "publisher": "CoreBytesInc",
   "name": "perplexity-ai-assistant",
   "displayName": "Perplexity AI Assistant",
-  "description": "AI powered coding assistant using Perplexity",
+  "publisher": "CoreBytesInc",
+  "description": "AI-powered coding assistant using Perplexity, integrated into VS Code.",
   "version": "1.0.0",
   "icon": "assets/perplexity.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CoreBytesInc/perplexity-ai-assistant"
+  },
   "engines": {
     "vscode": "^1.107.1"
   },
   "categories": [
-    "Snippets",
     "AI",
-    "Programming Languages"
+    "Programming Languages",
+    "Snippets"
   ],
   "keywords": [
     "AI",
@@ -25,12 +29,8 @@
     "Copilot",
     "CoreBytes"
   ],
-  "activationEvents": [],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/CoreBytesInc/perplexity-ai-assistant"
-  },
   "main": "./out/extension.js",
+  "activationEvents": [],
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -221,7 +221,7 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "watch": "tsc -w -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "test": "vscode-test"

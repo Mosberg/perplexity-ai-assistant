@@ -1,20 +1,20 @@
 import * as vscode from "vscode";
 
 export class PerplexitySettingsProvider {
-  private _panel: vscode.WebviewPanel | undefined;
+  private panel: vscode.WebviewPanel | undefined;
 
   constructor(
-    private readonly _extensionUri: vscode.Uri,
-    private readonly _context: vscode.ExtensionContext
+    private readonly extensionUri: vscode.Uri,
+    private readonly context: vscode.ExtensionContext
   ) {}
 
   public show() {
-    if (this._panel) {
-      this._panel.reveal();
+    if (this.panel) {
+      this.panel.reveal();
       return;
     }
 
-    this._panel = vscode.window.createWebviewPanel(
+    this.panel = vscode.window.createWebviewPanel(
       "perplexity-settings",
       "Perplexity AI Settings",
       vscode.ViewColumn.One,
@@ -24,30 +24,16 @@ export class PerplexitySettingsProvider {
       }
     );
 
-    this._panel.webview.html = this._getHtmlForWebview();
+    this.panel.webview.html = this.getHtmlForWebview();
 
-    this._panel.webview.onDidReceiveMessage(async (message) => {
+    this.panel.webview.onDidReceiveMessage(async (message) => {
       switch (message.type) {
         case "saveApiKey":
-          await this._context.secrets.store(
-            "perplexity-api-key",
-            message.value
-          );
+          await this.context.secrets.store("perplexity-api-key", message.value);
           vscode.window.showInformationMessage("API Key saved successfully");
           break;
         case "saveSettings":
-          const config = vscode.workspace.getConfiguration("perplexityAI");
-          await config.update(
-            "model",
-            message.model,
-            vscode.ConfigurationTarget.Global
-          );
-          await config.update(
-            "maxTokens",
-            message.maxTokens,
-            vscode.ConfigurationTarget.Global
-          );
-          vscode.window.showInformationMessage("Settings saved successfully");
+          await this.saveSettings(message.model, message.maxTokens);
           break;
         case "testConnection":
           await this.testApiConnection();
@@ -58,41 +44,51 @@ export class PerplexitySettingsProvider {
       }
     });
 
-    this._panel.onDidDispose(() => {
-      this._panel = undefined;
+    this.panel.onDidDispose(() => {
+      this.panel = undefined;
     });
 
-    // Load current settings when panel opens
     this.loadCurrentSettings();
   }
 
   private async loadCurrentSettings() {
-    if (!this._panel) {
+    if (!this.panel) {
       return;
     }
 
     const config = vscode.workspace.getConfiguration("perplexityAI");
-    const apiKey = await this._context.secrets.get("perplexity-api-key");
+    const apiKey = await this.context.secrets.get("perplexity-api-key");
 
-    this._panel.webview.postMessage({
+    this.panel.webview.postMessage({
       type: "settingsLoaded",
       settings: {
         model: config.get("model"),
         maxTokens: config.get("maxTokens"),
-        hasApiKey: !!apiKey,
+        hasApiKey: Boolean(apiKey),
       },
     });
   }
 
+  private async saveSettings(model: string, maxTokens: number) {
+    const config = vscode.workspace.getConfiguration("perplexityAI");
+    await config.update("model", model, vscode.ConfigurationTarget.Global);
+    await config.update(
+      "maxTokens",
+      maxTokens,
+      vscode.ConfigurationTarget.Global
+    );
+    vscode.window.showInformationMessage("Settings saved successfully");
+  }
+
   private async testApiConnection() {
-    if (!this._panel) {
+    if (!this.panel) {
       return;
     }
 
     try {
-      const apiKey = await this._context.secrets.get("perplexity-api-key");
+      const apiKey = await this.context.secrets.get("perplexity-api-key");
       if (!apiKey) {
-        this._panel.webview.postMessage({
+        this.panel.webview.postMessage({
           type: "connectionResult",
           success: false,
           message: "No API key configured",
@@ -105,18 +101,18 @@ export class PerplexitySettingsProvider {
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
+            authorization: `Bearer ${apiKey}`,
+            "content-type": "application/json",
           },
           body: JSON.stringify({
             model: "llama-3.1-sonar-small-128k-online",
             messages: [{ role: "user", content: "test" }],
-            max_tokens: 1,
+            maxTokens: 1,
           }),
         }
       );
 
-      this._panel.webview.postMessage({
+      this.panel.webview.postMessage({
         type: "connectionResult",
         success: response.ok,
         message: response.ok
@@ -124,7 +120,7 @@ export class PerplexitySettingsProvider {
           : `Connection failed: ${response.status}`,
       });
     } catch (error) {
-      this._panel.webview.postMessage({
+      this.panel.webview.postMessage({
         type: "connectionResult",
         success: false,
         message: `Connection error: ${error}`,
@@ -132,7 +128,7 @@ export class PerplexitySettingsProvider {
     }
   }
 
-  private _getHtmlForWebview() {
+  private getHtmlForWebview() {
     return `<!DOCTYPE html>
         <html lang="en">
         <head>
@@ -231,10 +227,10 @@ export class PerplexitySettingsProvider {
                 <div class="form-row">
                     <label for="model">Default Model</label>
                     <select id="model">
-                        <option value="sonar">Sonar</option>
-                        <option value="sonar-pro">Sonar Pro</option>
-                        <option value="sonar-reasoning">Sonar Reasoning</option>
-                        <option value="sonar-reasoning-pro">Sonar Reasoning Pro</option>
+                        <option value="llama-3.1-sonar-small-128k-online">Sonar</option>
+                        <option value="llama-3.1-sonar-large-128k-online">Sonar Pro</option>
+                        <option value="llama-3.1-sonar-reasoning-128k-online">Sonar Reasoning</option>
+                        <option value="llama-3.1-sonar-reasoning-large-128k-online">Sonar Reasoning Pro</option>
                     </select>
                     <div class="description">Choose the model that best fits your needs and budget</div>
                 </div>
@@ -260,8 +256,7 @@ export class PerplexitySettingsProvider {
 
                 function saveSettings() {
                     const model = document.getElementById('model').value;
-                    const maxTokens = parseInt(document.getElementById('maxTokens').value);
-                    
+                    const maxTokens = parseInt(document.getElementById('maxTokens').value, 10);
                     vscode.postMessage({ 
                         type: 'saveSettings', 
                         model: model,
@@ -279,7 +274,6 @@ export class PerplexitySettingsProvider {
                     element.textContent = message;
                     element.className = \`status-message \${type}\`;
                     element.style.display = 'block';
-                    
                     setTimeout(() => {
                         element.style.display = 'none';
                     }, 3000);
@@ -287,7 +281,6 @@ export class PerplexitySettingsProvider {
 
                 window.addEventListener('message', event => {
                     const { type, settings, success, message } = event.data;
-                    
                     switch (type) {
                         case 'settingsLoaded':
                             document.getElementById('model').value = settings.model || 'llama-3.1-sonar-small-128k-online';
@@ -299,7 +292,6 @@ export class PerplexitySettingsProvider {
                     }
                 });
 
-                // Load settings when page loads
                 vscode.postMessage({ type: 'loadSettings' });
             </script>
         </body>

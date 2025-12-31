@@ -1,20 +1,38 @@
 #!/bin/bash
 
-# Get bump type from the first argument or default to 'patch'
-BUMP_TYPE=${1:-patch}
+set -euo pipefail
 
-# Get commit message from the second argument or use a default
+# Usage info
+usage() {
+    echo "Usage: $0 [patch|minor|major] [commit message]"
+    exit 1
+}
+
+# Validate bump type
+BUMP_TYPE=${1:-patch}
+if [[ ! "$BUMP_TYPE" =~ ^(patch|minor|major)$ ]]; then
+    echo "Error: Invalid version bump type: $BUMP_TYPE"
+    usage
+fi
+
+# Commit message
 COMMIT_MSG=${2:-"Automated commit"}
 
-# Stage all changes
-git add .
+# Ensure working directory is clean
+if ! git diff-index --quiet HEAD --; then
+    git add .
+    git commit -m "$COMMIT_MSG"
+else
+    echo "No changes to commit."
+fi
 
-# Commit with the given message
-git commit -m "$COMMIT_MSG"
+# Pull latest changes to avoid conflicts
+git pull --rebase
 
-# Bump version with npm using the specified bump type
-npm version $BUMP_TYPE -m "Version bump to %s via automation"
+# Bump version
+npm version "$BUMP_TYPE" -m "Version bump to %s via automation"
 
-# Push commits and tags to remote
+# Push commits and tags
 git push --follow-tags
-echo "Version bumped and changes pushed successfully."
+
+echo "✅ Version bumped ($BUMP_TYPE) and changes pushed successfully."

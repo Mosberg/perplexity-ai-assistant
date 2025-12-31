@@ -14,7 +14,6 @@
     />
     <link rel="stylesheet" href="{{CSS_URI}}" />
   </head>
-
   <body>
     <div class="chat-container">
       <div class="messages-container" id="messagesContainer">
@@ -29,29 +28,14 @@
             inquiries. Start by asking me anything!
           </p>
           <p>
-            If API key is not set, please set it in the settings icon seen
-            above.
+            If API key is not set, please set it in the settings icon above.
           </p>
-          <!-- <div class="suggestions">
-          <button class="suggestion" onclick="insertSuggestion('Explain this code')">
-            <i class="codicon codicon-lightbulb"></i>
-            Explain this code
-          </button>
-          <button class="suggestion" onclick="insertSuggestion('Find bugs in my code')">
-            <i class="codicon codicon-bug"></i>
-            Find bugs in my code
-          </button>
-          <button class="suggestion" onclick="insertSuggestion('Optimize this function')">
-            <i class="codicon codicon-zap"></i>
-            Optimize this function
-          </button>
-          <button class="suggestion" onclick="insertSuggestion('Generate unit tests')">
-            <i class="codicon codicon-beaker"></i>
-            Generate unit tests
-          </button>
-        </div> -->
         </div>
-        <div class="typing-indicator" id="typingIndicator">
+        <div
+          class="typing-indicator"
+          id="typingIndicator"
+          style="display: none"
+        >
           <div class="message-header">
             <div class="message-avatar assistant-avatar">
               <i class="codicon codicon-loading codicon-modifier-spin"></i>
@@ -70,24 +54,37 @@
           </div>
         </div>
       </div>
-
       <div class="bottom-container">
         <div class="context-area">
           <div class="chat-attached-context"></div>
         </div>
-        <textarea id="messageInput" placeholder="Ask anything..."></textarea>
+        <textarea
+          id="messageInput"
+          placeholder="Ask anything..."
+          rows="1"
+          autocomplete="off"
+          spellcheck="false"
+        ></textarea>
         <div class="action-bar">
           <div class="action-dropdowns">
-            <select class="action-dropdown" id="chatTypeSelect">
+            <select
+              class="action-dropdown"
+              id="chatTypeSelect"
+              aria-label="Chat type"
+            >
               <option value="ask">Ask</option>
             </select>
-            <select class="action-dropdown" id="modelSelect"></select>
+            <select
+              class="action-dropdown"
+              id="modelSelect"
+              aria-label="Model"
+            ></select>
           </div>
           <div
             class="action-send"
             role="button"
             aria-disabled="false"
-            custom-hover="true"
+            tabindex="0"
           >
             <a
               class="action-label"
@@ -99,7 +96,6 @@
         </div>
       </div>
     </div>
-
     <script nonce="{{NONCE}}" src="{{JS_URI}}"></script>
   </body>
 </html>

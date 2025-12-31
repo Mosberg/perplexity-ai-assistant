@@ -4,55 +4,78 @@
 [![Downloads](https://img.shields.io/visual-studio-marketplace/d/Mosberg.perplexity-ai-assistant.svg)](https://marketplace.visualstudio.com/items?itemName=Mosberg.perplexity-ai-assistant)
 [![Rating](https://img.shields.io/visual-studio-marketplace/r/Mosberg.perplexity-ai-assistant.svg)](https://marketplace.visualstudio.com/items?itemName=Mosberg.perplexity-ai-assistant)
 
-A powerful VS Code extension that brings Perplexity AI's capabilities directly into your development environment. Get intelligent coding assistance, answers to your questions, and helpful suggestions right where you code.
+**Perplexity AI Assistant** brings the power of Perplexity AI directly into Visual Studio Code, providing intelligent coding assistance, instant answers, and helpful suggestions—all within your editor.
 
-## Features
+---
 
-### Currently Supported
+## 🚀 Features
 
-- 🤖 **AI-Powered Chat**: Engage in natural conversations about your code with Perplexity AI
-- ⚙️ **Customization**:
-  - Multiple Perplexity AI models support
-  - Configurable model settings
-  - API key management
+- **AI-Powered Chat:**  
+  Have natural conversations about your code and get context-aware answers from Perplexity AI.
 
-### Coming Soon
+- **Multiple Model Support:**  
+  Choose from several Perplexity AI models to best fit your workflow.
 
-- 📊 **Agent Mode**: Context aware code analysis with direct file edit support.
+- **Customizable Settings:**  
+  Configure model preferences and manage your API key securely.
 
-## Installation
+- **Secure API Key Management:**  
+  Your API key is stored using VS Code's secure secret storage—never in plain text.
 
-1. Open VS Code
-2. Go to the Extensions view (Ctrl+Shift+X or Cmd+Shift+X)
-3. Search for "Perplexity AI Assistant"
-4. Click Install
-5. Reload VS Code when prompted
+---
 
-## Usage
+## 🛠 Installation
 
-1. Click on the Perplexity AI icon in the Activity Bar (sidebar)
-2. Click on settings option on the top, and set the api key first.
-3. Perplexity api key can be generated for free at [Perplexity API Key](https://www.perplexity.ai/account/api/keys)
-4. Start a new chat session in the dedicated chat view
-5. Ask questions
-6. View AI responses directly in the chat interface
+1. Open **VS Code**
+2. Go to the Extensions view (`Ctrl+Shift+X` or `Cmd+Shift+X`)
+3. Search for **Perplexity AI Assistant**
+4. Click **Install**
+5. Reload VS Code if prompted
 
-## Privacy & Security
+---
 
-This extension processes code and queries through Perplexity AI's secure API. Your code privacy is our priority, and all communications are handled with industry-standard security measures.
-Your api key will not even be known to us.
+## 💡 Getting Started
 
-## Support
+1. Click the **Perplexity AI** icon in the Activity Bar (sidebar).
+2. Open **Settings** (gear icon at the top) and enter your API key.
+   - Generate a free API key at [Perplexity API Key](https://www.perplexity.ai/account/api/keys).
+3. Start a new chat session in the chat view.
+4. Ask questions or request code suggestions.
+5. View AI responses directly in the chat interface.
 
-If you encounter any issues or have suggestions for improvements, please [open an issue](https://github.com/Mosberg/perplexity-ai-assistant/issues) on our GitHub repository.
+---
 
-## About
+## 🛡 Privacy & Security
 
-Developed by [Mosberg](https://github.com/Mosberg), this extension aims to enhance your coding experience with the power of Perplexity AI.
-Developer: [Mosberg](https://Mosberg.github.io/)
+- All code and queries are processed via Perplexity AI's secure API.
+- Your API key is never shared or stored in plain text.
+- We prioritize your privacy and use industry-standard security measures.
 
-**Enjoying the extension?** Please leave a ⭐ review on the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=CoreBytesInc.perplexity-ai-assistant)!
+---
 
-## Credits
+## 📅 Roadmap
+
+- **Agent Mode** (Coming Soon):  
+  Context-aware code analysis with direct file editing support.
+
+---
+
+## 🙋 Support
+
+- Found a bug or have a suggestion?  
+  [Open an issue](https://github.com/Mosberg/perplexity-ai-assistant/issues) on GitHub.
+
+---
+
+## 👤 About
+
+Developed by [Mosberg](https://github.com/Mosberg), this extension aims to supercharge your coding experience with Perplexity AI.
+
+**Enjoying the extension?**  
+Please leave a ⭐ review on the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=Mosberg.perplexity-ai-assistant)!
+
+---
+
+## 🏅 Credits
 
 - Icons by [Lobehub](https://lobehub.com/icons/perplexity)

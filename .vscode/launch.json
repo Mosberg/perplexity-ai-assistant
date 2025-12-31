@@ -1,4 +1,5 @@
 {
+  // VS Code launch configuration for Perplexity AI Assistant extension
   "version": "0.2.0",
   "configurations": [
     {
@@ -8,10 +9,15 @@
       "runtimeExecutable": "${execPath}",
       "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
       "outFiles": ["${workspaceFolder}/out/**/*.js"],
-      "preLaunchTask": "npm: compile", // adjust to your compile task if different
+      "preLaunchTask": "npm: compile", // Ensure this matches your compile script in package.json
       "sourceMaps": true,
       "smartStep": true,
-      "internalConsoleOptions": "openOnSessionStart"
+      "internalConsoleOptions": "openOnSessionStart",
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "skipFiles": ["<node_internals>/**", "node_modules/**"],
+      "trace": true // Enables detailed extension host tracing for debugging
     }
   ]
 }

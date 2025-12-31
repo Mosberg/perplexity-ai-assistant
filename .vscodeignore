@@ -1,17 +1,40 @@
+# Ignore version control and config
 .git
 .github
 .gitignore
-node_modules
-tsconfig.json
+
+# Node modules and package manager files
+node_modules/
+.yarn/
+.yarnrc
+.pnpm-debug.log
+npm-debug.log
+*.log
+
+# Build and TypeScript artifacts
+dist/
+out/
+**/*.ts
+**/*.js.map
+**/*.map
+
+# VS Code and test folders
+.vscode/
+.vscode-test/
+.vscode-test-web/
+test/
+coverage/
+
+# Lint and config files
 .eslintrc.json
 eslint.config.mjs
-**/*.ts
-**/*.map
-.vscode/**
-.vscode-test/**
-.vscode-test-web/**
-test/**
+tsconfig.json
+
+# Extension package and artifacts
 *.vsix
-.yarnrc
-*.log
-.yarn/**
+
+# Miscellaneous
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

@@ -5,7 +5,7 @@ import * as path from "path";
 
 export function activate(context: vscode.ExtensionContext) {
   vscode.commands.executeCommand("setContext", "perplexity-ai.enabled", true);
-  // Initialize providers
+
   const chatProvider = new PerplexityCustomChatProvider(
     context.extensionUri,
     context
@@ -15,19 +15,13 @@ export function activate(context: vscode.ExtensionContext) {
     context
   );
 
-  // Register webview providers
   const registration = vscode.window.registerWebviewViewProvider(
     PerplexityCustomChatProvider.viewType,
     chatProvider,
-    {
-      webviewOptions: {
-        retainContextWhenHidden: true,
-      },
-    }
+    { webviewOptions: { retainContextWhenHidden: true } }
   );
   context.subscriptions.push(registration);
 
-  // Register commands
   const commands = [
     vscode.commands.registerCommand("perplexity-ai.ask", () =>
       askPerplexity(context)
@@ -84,7 +78,6 @@ export function activate(context: vscode.ExtensionContext) {
       } catch (error) {
         console.error("Could not show activity bar view container:", error);
       }
-      // Wait a moment to ensure the view is ready
       await new Promise((resolve) => setTimeout(resolve, 500));
       try {
         await vscode.commands.executeCommand("perplexity-chatView.focus");
@@ -237,7 +230,7 @@ async function executeCodeCommand(
       title: `${title} in progress...`,
       cancellable: false,
     },
-    async (progress) => {
+    async (_progress) => {
       try {
         const response = await queryPerplexityAPI(apiKey, prompt);
         showResponseInNewDocument(response, title);
@@ -318,7 +311,7 @@ async function askPerplexity(context: vscode.ExtensionContext) {
       title: "Querying Perplexity AI...",
       cancellable: false,
     },
-    async (progress) => {
+    async (_progress) => {
       try {
         const response = await queryPerplexityAPI(apiKey, question);
         showResponseInNewDocument(response, question);
@@ -345,7 +338,6 @@ async function askPerplexityWithStreaming(context: vscode.ExtensionContext) {
     return;
   }
 
-  // Create a new document for streaming response
   const doc = await vscode.workspace.openTextDocument({
     content: `# ${question}\n\n`,
     language: "markdown",
@@ -361,11 +353,8 @@ async function askPerplexityWithStreaming(context: vscode.ExtensionContext) {
     await queryPerplexityAPIStream(
       apiKey,
       question,
-      // onChunk callback - called for each piece of text
       (chunk: string) => {
         responseContent += chunk;
-
-        // Update the document with new content
         editor.edit((editBuilder) => {
           const fullContent = `# ${question}\n\n${responseContent}`;
           const fullRange = new vscode.Range(
@@ -374,25 +363,19 @@ async function askPerplexityWithStreaming(context: vscode.ExtensionContext) {
           );
           editBuilder.replace(fullRange, fullContent);
         });
-
-        // Auto-scroll to bottom
         const lastLine = editor.document.lineCount - 1;
         const lastPos = new vscode.Position(lastLine, 0);
         editor.revealRange(new vscode.Range(lastPos, lastPos));
       },
-      // onComplete callback - called when streaming finishes
       () => {
         vscode.window.showInformationMessage("Response complete!");
       }
     );
   } catch (error) {
     vscode.window.showErrorMessage(`Streaming error: ${error}`);
-
-    // Fallback to non-streaming if streaming fails
     try {
       const response = await queryPerplexityAPI(apiKey, question);
       const fallbackContent = `# ${question}\n\n${response}\n\n*Note: Streamed response failed, showing complete response*`;
-
       editor.edit((editBuilder) => {
         const fullRange = new vscode.Range(
           doc.positionAt(0),
@@ -431,8 +414,6 @@ async function askWithFileContext(context: vscode.ExtensionContext) {
     const fileName = path.basename(editor.document.fileName);
     const fileContent = editor.document.getText();
     const language = editor.document.languageId;
-
-    // Limit file content if too large
     const maxContentLength = 5000;
     const truncatedContent =
       fileContent.length > maxContentLength
@@ -459,7 +440,7 @@ Question: ${question}`;
       title: "Analyzing file and querying Perplexity AI...",
       cancellable: false,
     },
-    async (progress) => {
+    async (_progress) => {
       try {
         const response = await queryPerplexityAPI(apiKey, contextPrompt);
         showResponseInNewDocument(response, `File Analysis: ${question}`);
@@ -516,7 +497,6 @@ Dev Dependencies: ${
         "No package.json found or unable to read project information";
     }
 
-    // Get file structure (limited to prevent token overflow)
     const files = await vscode.workspace.findFiles(
       "**/*.{js,ts,jsx,tsx,py,java,cs,cpp,h,html,css,md,json}",
       "**/node_modules/**",
@@ -525,7 +505,7 @@ Dev Dependencies: ${
 
     const fileList = files
       .map((file) => path.relative(workspaceFolders[0].uri.fsPath, file.fsPath))
-      .slice(0, 30) // Limit to first 30 files
+      .slice(0, 30)
       .join("\n");
 
     let readmeContent = "";
@@ -535,7 +515,7 @@ Dev Dependencies: ${
         "README.md"
       );
       const readme = await vscode.workspace.fs.readFile(readmeUri);
-      readmeContent = readme.toString().substring(0, 1000); // First 1000 chars
+      readmeContent = readme.toString().substring(0, 1000);
     } catch {}
 
     const contextPrompt = `I'm working on a project with the following information:
@@ -561,7 +541,7 @@ ${question}`;
         title: "Analyzing workspace and querying Perplexity AI...",
         cancellable: false,
       },
-      async (progress) => {
+      async (_progress) => {
         const response = await queryPerplexityAPI(apiKey, contextPrompt);
         showResponseInNewDocument(response, `Workspace Analysis: ${question}`);
       }
@@ -585,15 +565,15 @@ async function queryPerplexityAPIStream(
     const response = await fetch("https://api.perplexity.ai/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
+        authorization: `Bearer ${apiKey}`,
+        "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: model,
+        model,
         messages: [{ role: "user", content: prompt }],
-        max_tokens: maxTokens,
+        maxTokens,
         temperature: 0.2,
-        stream: true, // Enable streaming
+        stream: true,
       }),
     });
 
@@ -604,33 +584,26 @@ async function queryPerplexityAPIStream(
       );
     }
 
-    // Check if response body exists
     if (!response.body) {
       throw new Error("Response body is null");
     }
 
-    // Create a reader for the stream
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
 
     try {
       while (true) {
         const { done, value } = await reader.read();
-
         if (done) {
           onComplete?.();
           break;
         }
-
-        // Decode the chunk
         const chunk = decoder.decode(value, { stream: true });
         const lines = chunk.split("\n");
-
-        // Process each line
         for (const line of lines) {
           if (line.startsWith("data: ") && !line.includes("[DONE]")) {
             try {
-              const jsonStr = line.slice(6); // Remove 'data: ' prefix
+              const jsonStr = line.slice(6);
               if (jsonStr.trim()) {
                 const data = JSON.parse(jsonStr);
                 const content = data.choices?.[0]?.delta?.content;
@@ -638,9 +611,8 @@ async function queryPerplexityAPIStream(
                   onChunk(content);
                 }
               }
-            } catch (parseError) {
+            } catch {
               // Ignore JSON parsing errors for incomplete chunks
-              console.warn("Failed to parse streaming chunk:", parseError);
             }
           }
         }
@@ -653,7 +625,6 @@ async function queryPerplexityAPIStream(
   }
 }
 
-// API call to Perplexity
 async function queryPerplexityAPI(
   apiKey: string,
   prompt: string
@@ -666,83 +637,36 @@ async function queryPerplexityAPI(
     const response = await fetch("https://api.perplexity.ai/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
+        authorization: `Bearer ${apiKey}`,
+        "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: `sonar`,
+        model,
         messages: [{ role: "user", content: prompt }],
-        max_tokens: maxTokens,
+        maxTokens,
         temperature: 0.2,
         stream: false,
       }),
     });
     if (!response.ok) {
       const errorBody = await response.text();
-      console.error(`API Error Response: ${errorBody}`);
       throw new Error(errorBody);
     }
-
     const data = (await response.json()) as PerplexityResponse;
     return data.choices[0]?.message?.content || "No response received";
   } catch (error) {
     throw new Error(`Failed to query Perplexity API - ${error}`);
   }
 }
-// Show response in new document
+
 async function showResponseInNewDocument(content: string, title: string) {
   const doc = await vscode.workspace.openTextDocument({
     content: `# ${title}\n\n${content}`,
     language: "markdown",
   });
-
   await vscode.window.showTextDocument(doc, {
     viewColumn: vscode.ViewColumn.Beside,
   });
-}
-
-// Chat view provider (basic implementation)
-class PerplexityChatProvider implements vscode.TreeDataProvider<ChatItem> {
-  private _onDidChangeTreeData: vscode.EventEmitter<
-    ChatItem | undefined | null | void
-  > = new vscode.EventEmitter<ChatItem | undefined | null | void>();
-  readonly onDidChangeTreeData: vscode.Event<
-    ChatItem | undefined | null | void
-  > = this._onDidChangeTreeData.event;
-
-  constructor(private context: vscode.ExtensionContext) {}
-
-  refresh(): void {
-    this._onDidChangeTreeData.fire();
-  }
-
-  getTreeItem(element: ChatItem): vscode.TreeItem {
-    return element;
-  }
-
-  getChildren(element?: ChatItem): Thenable<ChatItem[]> {
-    if (!element) {
-      return Promise.resolve([
-        new ChatItem(
-          "Start a new conversation",
-          "Click to ask Perplexity AI",
-          vscode.TreeItemCollapsibleState.None
-        ),
-      ]);
-    }
-    return Promise.resolve([]);
-  }
-}
-
-class ChatItem extends vscode.TreeItem {
-  constructor(
-    public readonly label: string,
-    public readonly tooltip: string,
-    public readonly collapsibleState: vscode.TreeItemCollapsibleState
-  ) {
-    super(label, collapsibleState);
-    this.tooltip = tooltip;
-  }
 }
 
 interface PerplexityResponse {
@@ -753,5 +677,4 @@ interface PerplexityResponse {
   }>;
 }
 
-// This method is called when your extension is deactivated
 export function deactivate() {}

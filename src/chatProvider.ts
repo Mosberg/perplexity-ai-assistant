@@ -14,39 +14,54 @@ export interface ChatSession {
   createdAt: Date;
 }
 
+interface AttachedContext {
+  id: string;
+  type: "file" | "selection";
+  name?: string;
+  path?: string;
+  content: string;
+  language?: string;
+  extension?: string;
+  iconUri?: string;
+  lineCount?: number;
+  startLine?: number;
+  endLine?: number;
+  fileName?: string;
+}
+
 export class PerplexityCustomChatProvider
   implements vscode.WebviewViewProvider
 {
   public static readonly viewType = "perplexity-chatView";
-  private _view?: vscode.WebviewView;
-  private _sessions: ChatSession[] = [];
-  private _currentSessionId?: string;
-  private _currentMode: string = "ask";
-  private _currentModel: string = "sonar";
-  private _abortController?: AbortController;
+  private view?: vscode.WebviewView;
+  private sessions: ChatSession[] = [];
+  private currentSessionId?: string;
+  private currentMode = "ask";
+  private currentModel = "sonar";
+  private abortController?: AbortController;
+  private attachedContext: AttachedContext[] = [];
 
   constructor(
-    private readonly _extensionUri: vscode.Uri,
-    private readonly _context: vscode.ExtensionContext
+    private readonly extensionUri: vscode.Uri,
+    private readonly context: vscode.ExtensionContext
   ) {
     this.loadChatHistory();
   }
 
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
-    context: vscode.WebviewViewResolveContext,
+    _context: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken
   ) {
-    this._view = webviewView;
+    this.view = webviewView;
 
     webviewView.webview.options = {
       enableScripts: true,
-      localResourceRoots: [this._extensionUri],
+      localResourceRoots: [this.extensionUri],
     };
 
-    webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+    webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
 
-    // Handle messages from webview
     webviewView.webview.onDidReceiveMessage(async (data) => {
       try {
         switch (data.type) {
@@ -88,15 +103,13 @@ export class PerplexityCustomChatProvider
             this.handleRemoveContext(data.contextId);
             break;
         }
-      } catch (error) {
-        console.error("Error handling webview message:", error);
+      } catch (err) {
+        console.error("Error handling webview message:", err);
       }
     });
 
-    // Load existing chat on startup
     setTimeout(() => {
       this.updateWebview();
-      // Auto-detect context on startup
       this.handleAutoDetectContext();
     }, 100);
   }
@@ -106,18 +119,15 @@ export class PerplexityCustomChatProvider
       return;
     }
 
-    // Cancel any ongoing request
-    if (this._abortController) {
-      this._abortController.abort();
+    if (this.abortController) {
+      this.abortController.abort();
     }
-
-    // Create new abort controller for this request
-    this._abortController = new AbortController();
+    this.abortController = new AbortController();
 
     try {
       const apiKey = await this.getApiKey();
       if (!apiKey) {
-        this._view?.webview.postMessage({
+        this.view?.webview.postMessage({
           type: "error",
           error:
             "API key not configured. Please set up your Perplexity API key.",
@@ -125,84 +135,61 @@ export class PerplexityCustomChatProvider
         return;
       }
 
-      // Show typing indicator
-      this._view?.webview.postMessage({
-        type: "showTyping",
-      });
+      this.view?.webview.postMessage({ type: "showTyping" });
 
-      // Prepare message with context
       let fullMessage = message;
       if (this.attachedContext.length > 0) {
         const contextStrings = this.attachedContext.map((ctx) => {
-          switch (ctx.type) {
-            case "file":
-              return `File: ${ctx.name}\n\`\`\`${ctx.language}\n${ctx.content}\n\`\`\``;
-            case "selection":
-              return `Selected code from ${ctx.fileName} (lines ${ctx.startLine}-${ctx.endLine}):\n\`\`\`\n${ctx.content}\n\`\`\``;
-            default:
-              return `Context: ${ctx.name}\n${ctx.content}`;
+          if (ctx.type === "file") {
+            return `File: ${ctx.name}\n\`\`\`${ctx.language}\n${ctx.content}\n\`\`\``;
+          } else if (ctx.type === "selection") {
+            return `Selected code from ${ctx.fileName} (lines ${ctx.startLine}-${ctx.endLine}):\n\`\`\`\n${ctx.content}\n\`\`\``;
           }
+          return `Context: ${ctx.name}\n${ctx.content}`;
         });
-
         fullMessage = `Context:\n${contextStrings.join(
           "\n\n"
         )}\n\nUser Question: ${message}`;
-
-        // Keep attached context - don't clear it automatically
-        // Context will persist for future questions unless manually removed
       }
 
       const response = await this.queryPerplexityAPI(
         apiKey,
         fullMessage,
-        this._abortController.signal
+        this.abortController.signal
       );
 
-      // Hide typing indicator
-      this._view?.webview.postMessage({
-        type: "hideTyping",
-      });
+      this.view?.webview.postMessage({ type: "hideTyping" });
 
-      // Note: response is now sent via streaming events in queryPerplexityAPI
-      // No need to send a separate 'response' event
-
-      // Save to history (save original message, not the one with context)
       this.addUserMessage(message);
       this.addAssistantMessage(response);
-    } catch (error) {
-      // Hide typing indicator
-      this._view?.webview.postMessage({
-        type: "hideTyping",
-      });
+    } catch (err: unknown) {
+      this.view?.webview.postMessage({ type: "hideTyping" });
 
-      if (error instanceof Error && error.name === "AbortError") {
-        this._view?.webview.postMessage({
-          type: "responseStopped",
-        });
+      if (err instanceof Error && err.name === "AbortError") {
+        this.view?.webview.postMessage({ type: "responseStopped" });
       } else {
-        this._view?.webview.postMessage({
+        this.view?.webview.postMessage({
           type: "error",
-          error: error instanceof Error ? error.message : "Unknown error",
+          error: err instanceof Error ? err.message : "Unknown error",
         });
       }
     } finally {
-      this._abortController = undefined;
+      this.abortController = undefined;
     }
   }
+
   private addAssistantMessage(content: string) {
     this.ensureCurrentSession();
-    const session = this._sessions.find((s) => s.id === this._currentSessionId);
+    const session = this.sessions.find((s) => s.id === this.currentSessionId);
     if (!session) {
-      console.error("No session found for assistant message");
       return;
     }
 
-    const assistantMessage: ChatMessage = {
+    session.messages.push({
       role: "assistant",
-      content: content,
+      content,
       timestamp: new Date(),
-    };
-    session.messages.push(assistantMessage);
+    });
 
     this.updateWebview();
     this.saveChatHistory();
@@ -210,27 +197,24 @@ export class PerplexityCustomChatProvider
 
   private addUserMessage(content: string) {
     this.ensureCurrentSession();
-    let session = this._sessions.find((s) => s.id === this._currentSessionId);
+    let session = this.sessions.find((s) => s.id === this.currentSessionId);
 
-    // If session doesn't exist in array, create it now (first message)
     if (!session) {
       session = {
-        id: this._currentSessionId!,
+        id: this.currentSessionId!,
         title: content.length > 50 ? content.substring(0, 50) + "..." : content,
         messages: [],
         createdAt: new Date(),
       };
-      this._sessions.unshift(session); // Add to beginning
+      this.sessions.unshift(session);
     }
 
-    const userMessage: ChatMessage = {
+    session.messages.push({
       role: "user",
-      content: content,
+      content,
       timestamp: new Date(),
-    };
-    session.messages.push(userMessage);
+    });
 
-    // Update session title if this is the first message
     if (session.messages.length === 1) {
       session.title =
         content.length > 50 ? content.substring(0, 50) + "..." : content;
@@ -242,55 +226,42 @@ export class PerplexityCustomChatProvider
 
   private ensureCurrentSession() {
     if (
-      !this._currentSessionId ||
-      !this._sessions.find((s) => s.id === this._currentSessionId)
+      !this.currentSessionId ||
+      !this.sessions.find((s) => s.id === this.currentSessionId)
     ) {
-      // Create a new session but don't add it to sessions array yet
-      // It will be added when the first message is sent
-      this._currentSessionId =
+      this.currentSessionId =
         Date.now().toString() + Math.random().toString(36).substr(2, 9);
     }
   }
 
   public startNewChat() {
-    // Just generate a new session ID, but don't create the session until first message
-    this._currentSessionId =
+    this.currentSessionId =
       Date.now().toString() + Math.random().toString(36).substr(2, 9);
-
     this.updateWebview();
-    // Don't save chat history here since no session is created yet
   }
 
   public stopGeneration() {
-    if (this._abortController) {
-      this._abortController.abort();
-      this._abortController = undefined;
-
-      this._view?.webview.postMessage({
-        type: "responseStopped",
-      });
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = undefined;
+      this.view?.webview.postMessage({ type: "responseStopped" });
     }
   }
 
   public clearHistory() {
-    this._sessions = [];
-    this._currentSessionId = undefined;
+    this.sessions = [];
+    this.currentSessionId = undefined;
     this.updateWebview();
     this.saveChatHistory();
-
-    // Don't create a new session after clearing
-    // It will be created when the user sends their first message
   }
 
   public async showChatHistory() {
-    if (this._sessions.length === 0) {
+    if (this.sessions.length === 0) {
       vscode.window.showInformationMessage("No chat history available.");
       return;
     }
 
-    // Create quick pick items from sessions
-    const items = this._sessions.map((session) => {
-      // Ensure createdAt is a Date object (it might be a string when loaded from storage)
+    const items = this.sessions.map((session) => {
       const createdAt =
         session.createdAt instanceof Date
           ? session.createdAt
@@ -300,11 +271,10 @@ export class PerplexityCustomChatProvider
         label: session.title,
         description: `${session.messages.length} messages`,
         detail: `Created: ${createdAt.toLocaleDateString()} ${createdAt.toLocaleTimeString()}`,
-        session: session,
+        session,
       };
     });
 
-    // Show quick pick dialog
     const selected = await vscode.window.showQuickPick(items, {
       placeHolder: "Select a chat session to view",
       matchOnDescription: true,
@@ -312,11 +282,8 @@ export class PerplexityCustomChatProvider
     });
 
     if (selected) {
-      // Switch to the selected session
       this.selectSession(selected.session.id);
 
-      // Show a message with session details
-      const messageCount = selected.session.messages.length;
       const userMessages = selected.session.messages.filter(
         (m) => m.role === "user"
       ).length;
@@ -331,32 +298,29 @@ export class PerplexityCustomChatProvider
   }
 
   public selectSession(sessionId: string) {
-    const session = this._sessions.find((s) => s.id === sessionId);
-    if (session) {
-      this._currentSessionId = sessionId;
+    if (this.sessions.find((s) => s.id === sessionId)) {
+      this.currentSessionId = sessionId;
       this.updateWebview();
     }
   }
 
-  private updateWebview(showTyping: boolean = false) {
-    if (!this._view || !this._view.webview) {
+  private updateWebview(showTyping = false) {
+    if (!this.view || !this.view.webview) {
       return;
     }
 
     try {
-      const session = this._sessions.find(
-        (s) => s.id === this._currentSessionId
-      );
+      const session = this.sessions.find((s) => s.id === this.currentSessionId);
 
-      this._view.webview.postMessage({
+      this.view.webview.postMessage({
         type: "updateChat",
         messages: session?.messages || [],
-        sessions: this._sessions.map((s) => ({ id: s.id, title: s.title })),
-        currentSessionId: this._currentSessionId,
+        sessions: this.sessions.map((s) => ({ id: s.id, title: s.title })),
+        currentSessionId: this.currentSessionId,
         showTyping,
       });
-    } catch (error) {
-      console.error("Error updating webview:", error);
+    } catch (err) {
+      console.error("Error updating webview:", err);
     }
   }
 
@@ -371,18 +335,17 @@ export class PerplexityCustomChatProvider
   }
 
   private handleModeChange(mode: string) {
-    this._currentMode = mode;
+    this.currentMode = mode;
   }
 
   private handleModelChange(model: string) {
-    this._currentModel = model;
-    // Update the model in workspace configuration
+    this.currentModel = model;
     const config = vscode.workspace.getConfiguration("perplexityAI");
     config.update("model", model, vscode.ConfigurationTarget.Global);
   }
 
   private async getApiKey(): Promise<string | undefined> {
-    return await this._context.secrets.get("perplexity-api-key");
+    return await this.context.secrets.get("perplexity-api-key");
   }
 
   private async queryPerplexityAPI(
@@ -390,126 +353,46 @@ export class PerplexityCustomChatProvider
     prompt: string,
     signal?: AbortSignal
   ): Promise<string> {
-    // Use the current model selection
-    const model = this._currentModel;
     const response = await fetch("https://api.perplexity.ai/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
+        authorization: `Bearer ${apiKey}`,
+        "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: model,
+        model: this.currentModel,
         messages: [{ role: "user", content: prompt }],
-        max_tokens: 2000,
+        maxTokens: 2000,
         temperature: 0.2,
       }),
-      signal: signal, // Add abort signal
+      signal,
     });
 
     if (!response.ok) {
-      console.error(response);
       throw new Error(`API request failed: ${response.status}`);
     }
 
     if (!response.body) {
-      console.error("Response body is null");
       return "No response received";
     } else {
-      const data: any = await response.json();
+      const data = (await response.json()) as {
+        choices: { message: { content: string } }[];
+      };
       return data.choices[0]?.message?.content || "No response received";
     }
   }
 
-  private async handleStreamingResponse(
-    body: ReadableStream<Uint8Array>,
-    signal?: AbortSignal
-  ): Promise<string> {
-    const reader = body.getReader();
-    const decoder = new TextDecoder();
-    let fullResponse = "";
-    const messageId = Date.now().toString();
-
-    try {
-      // Send stream start event
-      this._view?.webview.postMessage({
-        type: "streamStart",
-        messageId: messageId,
-      });
-
-      while (true) {
-        if (signal?.aborted) {
-          throw new Error("Request aborted");
-        }
-
-        const { done, value } = await reader.read();
-
-        if (done) {
-          break;
-        }
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n");
-
-        for (const line of lines) {
-          if (line.trim() === "") {
-            continue;
-          }
-          if (line.startsWith("data: ")) {
-            const data = line.substring(6).trim();
-
-            if (data === "[DONE]") {
-              break;
-            }
-
-            try {
-              const parsed = JSON.parse(data);
-              const content = parsed.choices?.[0]?.delta?.content;
-
-              if (content) {
-                fullResponse += content;
-                // Send chunk to UI
-                this._view?.webview.postMessage({
-                  type: "streamChunk",
-                  messageId: messageId,
-                  content: content,
-                });
-              }
-            } catch (e) {
-              // Skip invalid JSON
-              console.warn("Failed to parse streaming chunk:", data);
-            }
-          }
-        }
-      }
-
-      // Send stream end event
-      this._view?.webview.postMessage({
-        type: "streamEnd",
-        messageId: messageId,
-      });
-
-      return fullResponse;
-    } catch (error) {
-      reader.releaseLock();
-      throw error;
-    } finally {
-      reader.releaseLock();
-    }
-  }
-
   private saveChatHistory() {
-    this._context.globalState.update("perplexity-chat-history", this._sessions);
+    this.context.globalState.update("perplexity-chat-history", this.sessions);
   }
 
   private loadChatHistory() {
-    const saved = this._context.globalState.get<ChatSession[]>(
+    const saved = this.context.globalState.get<ChatSession[]>(
       "perplexity-chat-history",
       []
     );
 
-    // Convert date strings back to Date objects since they get serialized as strings
-    this._sessions = saved.map((session) => ({
+    this.sessions = saved.map((session) => ({
       ...session,
       createdAt:
         session.createdAt instanceof Date
@@ -524,52 +407,39 @@ export class PerplexityCustomChatProvider
       })),
     }));
 
-    if (this._sessions.length > 0) {
-      this._currentSessionId = this._sessions[0].id;
-    } else {
-      // Don't create an initial session automatically
-      // It will be created when the user sends their first message
-      this._currentSessionId = undefined;
-    }
+    this.currentSessionId =
+      this.sessions.length > 0 ? this.sessions[0].id : undefined;
   }
-
-  private attachedContext: any[] = [];
 
   private async handleAutoDetectContext() {
     try {
-      // Only auto-detect if context is empty (first time)
       if (this.attachedContext.length > 0) {
         return;
       }
 
-      // Auto-add current file if one is open
       const currentFile = await this.getCurrentFileContext();
       if (currentFile) {
         this.attachedContext.push(currentFile);
       }
 
-      // Auto-add selection if any
       const selection = await this.getSelectionContext();
       if (selection) {
         this.attachedContext.push(selection);
       }
 
-      // Update the webview with detected context
-      this._view?.webview.postMessage({
+      this.view?.webview.postMessage({
         type: "contextAttached",
         context: this.attachedContext,
       });
-    } catch (error) {
-      console.error("Error auto-detecting context:", error);
+    } catch (err) {
+      console.error("Error auto-detecting context:", err);
     }
   }
 
   private async handleRequestAdditionalContext() {
     try {
-      // Create VS Code command palette style picker
       const items: vscode.QuickPickItem[] = [];
 
-      // Add open editors section
       const openEditors = vscode.window.tabGroups.all
         .flatMap((group) => group.tabs)
         .filter((tab) => tab.input instanceof vscode.TabInputText)
@@ -597,7 +467,6 @@ export class PerplexityCustomChatProvider
         }
       }
 
-      // Add files & folders section
       items.push({
         label: "Files & Folders...",
         kind: vscode.QuickPickItemKind.Separator,
@@ -609,7 +478,6 @@ export class PerplexityCustomChatProvider
         detail: "Select files from file system",
       });
 
-      // Add workspace files (if workspace is open)
       if (
         vscode.workspace.workspaceFolders &&
         vscode.workspace.workspaceFolders.length > 0
@@ -618,7 +486,7 @@ export class PerplexityCustomChatProvider
           const workspaceFiles = await vscode.workspace.findFiles(
             "**/*.{js,ts,py,java,cpp,c,cs,php,rb,go,rs,html,css,scss,vue,jsx,tsx,json,md,txt}",
             "**/node_modules/**",
-            20 // Limit to 20 files for performance
+            20
           );
 
           if (workspaceFiles.length > 0) {
@@ -642,12 +510,11 @@ export class PerplexityCustomChatProvider
               });
             }
           }
-        } catch (error) {
-          console.warn("Could not load workspace files:", error);
+        } catch (err) {
+          console.warn("Could not load workspace files:", err);
         }
       }
 
-      // Show quick pick
       const selected = await vscode.window.showQuickPick(items, {
         placeHolder: "Search for files and context to add to your request",
         matchOnDescription: true,
@@ -657,16 +524,13 @@ export class PerplexityCustomChatProvider
 
       if (selected) {
         if (selected.label === "$(folder-opened) Browse Files...") {
-          // Fall back to file browser
           await this.showFileBrowser();
         } else if (selected.detail && selected.label.includes("$(file)")) {
-          // Add selected file to context
-          const filePath = selected.detail;
-          await this.addFileToContext(filePath);
+          await this.addFileToContext(selected.detail);
         }
       }
-    } catch (error) {
-      console.error("Error showing context picker:", error);
+    } catch (err) {
+      console.error("Error showing context picker:", err);
       vscode.window.showErrorMessage("Failed to show context picker");
     }
   }
@@ -679,7 +543,7 @@ export class PerplexityCustomChatProvider
       openLabel: "Add to Context",
       title: "Add additional files to context",
       filters: {
-        "Code Files": [
+        codeFiles: [
           "js",
           "ts",
           "py",
@@ -692,10 +556,10 @@ export class PerplexityCustomChatProvider
           "go",
           "rs",
         ],
-        "Web Files": ["html", "css", "scss", "less", "vue", "jsx", "tsx"],
-        "Config Files": ["json", "yaml", "yml", "xml", "toml", "ini"],
-        Documentation: ["md", "txt", "rst"],
-        "All Files": ["*"],
+        webFiles: ["html", "css", "scss", "less", "vue", "jsx", "tsx"],
+        configFiles: ["json", "yaml", "yml", "xml", "toml", "ini"],
+        documentation: ["md", "txt", "rst"],
+        allFiles: ["*"],
       },
     });
 
@@ -708,11 +572,9 @@ export class PerplexityCustomChatProvider
 
   private async addFileToContext(filePath: string) {
     try {
-      // Check if file is already in context
       const existingFile = this.attachedContext.find(
         (ctx) => ctx.type === "file" && ctx.path === filePath
       );
-
       if (!existingFile) {
         const content = await vscode.workspace.fs.readFile(
           vscode.Uri.file(filePath)
@@ -721,7 +583,6 @@ export class PerplexityCustomChatProvider
           ? filePath.split("\\").pop()
           : filePath.split("/").pop() || filePath;
 
-        // Get the file icon URI from VS Code
         const fileUri = vscode.Uri.file(filePath);
         const iconUri = await this.getFileIconUri(fileUri);
 
@@ -733,59 +594,56 @@ export class PerplexityCustomChatProvider
           content: content.toString(),
           language: this.getLanguageFromExtension(fileName || ""),
           extension: (fileName || "").split(".").pop() || "",
-          iconUri: iconUri,
+          iconUri,
         });
 
-        // Update the webview with all attached context
-        this._view?.webview.postMessage({
+        this.view?.webview.postMessage({
           type: "contextAttached",
           context: this.attachedContext,
         });
       }
-    } catch (error) {
-      console.error(`Error reading file ${filePath}:`, error);
+    } catch (err) {
+      console.error(`Error reading file ${filePath}:`, err);
       vscode.window.showErrorMessage(`Failed to read file: ${filePath}`);
     }
   }
 
-  private async getCurrentFileContext() {
+  private async getCurrentFileContext(): Promise<AttachedContext | null> {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-      return null; // Don't show warning, just return null
+      return null;
     }
 
     const document = editor.document;
-    // Get just the filename from the path
     const fullPath = document.fileName;
     const fileName = fullPath.includes("\\")
       ? fullPath.split("\\").pop()
       : fullPath.split("/").pop() || fullPath;
 
-    // Get the file icon URI from VS Code
     const fileUri = vscode.Uri.file(document.fileName);
     const iconUri = await this.getFileIconUri(fileUri);
 
     return {
       id: Date.now().toString(),
       type: "file",
-      name: fileName, // Only file name, not full path
+      name: fileName,
       path: document.fileName,
       content: document.getText(),
       language: document.languageId,
       extension: (fileName || "").split(".").pop() || "",
-      iconUri: iconUri,
+      iconUri,
     };
   }
 
-  private async getSelectionContext() {
+  private async getSelectionContext(): Promise<AttachedContext | null> {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-      return null; // Don't show warning, just return null
+      return null;
     }
 
     const selection = editor.selection;
     if (selection.isEmpty) {
-      return null; // Don't show warning, just return null
+      return null;
     }
 
     const selectedText = editor.document.getText(selection);
@@ -802,7 +660,7 @@ export class PerplexityCustomChatProvider
       lineCount,
       startLine: selection.start.line + 1,
       endLine: selection.end.line + 1,
-      fileName: fileName, // Only file name, not full path
+      fileName,
     };
   }
 
@@ -836,54 +694,30 @@ export class PerplexityCustomChatProvider
       const fileName = fileUri.path.split("/").pop() || "";
       const extension = fileName.split(".").pop()?.toLowerCase() || "";
 
-      // Find the Material Icon Theme extension with more thorough search
       const allExtensions = vscode.extensions.all;
-
-      // Try multiple ways to find the extension
-      let materialIconExt = allExtensions.find(
-        (ext) => ext.id === "pkief.material-icon-theme"
-      );
-
-      if (!materialIconExt) {
-        // Try alternative search methods
-        materialIconExt = allExtensions.find(
+      let materialIconExt =
+        allExtensions.find((ext) => ext.id === "pkief.material-icon-theme") ||
+        allExtensions.find(
           (ext) => ext.packageJSON?.name === "material-icon-theme"
-        );
-      }
-
-      if (!materialIconExt) {
-        materialIconExt = allExtensions.find((ext) =>
+        ) ||
+        allExtensions.find((ext) =>
           ext.packageJSON?.displayName?.includes("Material Icon Theme")
         );
+
+      if (materialIconExt && !materialIconExt.isActive) {
+        await materialIconExt.activate();
       }
 
-      if (materialIconExt) {
-        // Try to activate the extension if it's not active
-        if (!materialIconExt.isActive) {
-          await materialIconExt.activate();
-        }
-      }
-
-      if (!materialIconExt || !this._view) {
-        // Return a simple test icon to see if the problem is with icon loading or CSS
-        if (this._view) {
-          // Create a simple data URI for a test icon
-          const testSvg = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      if (!materialIconExt || !this.view) {
+        const testSvg = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect width="16" height="16" fill="#007ACC"/>
             <text x="8" y="12" text-anchor="middle" fill="white" font-size="10" font-family="Arial">${extension
               .charAt(0)
               .toUpperCase()}</text>
           </svg>`;
-          const dataUri = `data:image/svg+xml;base64,${Buffer.from(
-            testSvg
-          ).toString("base64")}`;
-          return dataUri;
-        }
-
-        return undefined;
+        return `data:image/svg+xml;base64,${Buffer.from(testSvg).toString("base64")}`;
       }
 
-      // Material Icon Theme mapping for common extensions
       const materialIconMap: { [key: string]: string } = {
         ts: "typescript",
         js: "javascript",
@@ -907,10 +741,8 @@ export class PerplexityCustomChatProvider
         vue: "vue",
       };
 
-      // Check for specific file names first
       const lowerFileName = fileName.toLowerCase();
       let iconName = "";
-
       if (lowerFileName === "package.json") {
         iconName = "nodejs";
       } else if (lowerFileName === "readme.md") {
@@ -926,19 +758,15 @@ export class PerplexityCustomChatProvider
         iconName = materialIconMap[extension] || "file";
       }
 
-      // Construct the icon path within the Material Icon Theme extension
       const iconPath = vscode.Uri.joinPath(
         materialIconExt.extensionUri,
         "icons",
         `${iconName}.svg`
       );
 
-      // Check if the icon file exists
       try {
         await vscode.workspace.fs.stat(iconPath);
-      } catch (error) {
-        console.warn(`Icon file does not exist: ${iconPath.toString()}`);
-        // Try fallback to 'file' icon
+      } catch {
         const fallbackIconPath = vscode.Uri.joinPath(
           materialIconExt.extensionUri,
           "icons",
@@ -946,34 +774,21 @@ export class PerplexityCustomChatProvider
         );
         try {
           await vscode.workspace.fs.stat(fallbackIconPath);
-          const webviewUri = this._view.webview.asWebviewUri(fallbackIconPath);
-          return webviewUri.toString();
-        } catch (fallbackError) {
-          console.warn(
-            `Fallback icon also missing: ${fallbackIconPath.toString()}`
-          );
-          // Use test icon as final fallback
+          return this.view.webview.asWebviewUri(fallbackIconPath).toString();
+        } catch {
           const testSvg = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect width="16" height="16" fill="#666"/>
             <text x="8" y="12" text-anchor="middle" fill="white" font-size="8" font-family="Arial">${extension
               .charAt(0)
               .toUpperCase()}</text>
           </svg>`;
-          const dataUri = `data:image/svg+xml;base64,${Buffer.from(
-            testSvg
-          ).toString("base64")}`;
-          return dataUri;
+          return `data:image/svg+xml;base64,${Buffer.from(testSvg).toString("base64")}`;
         }
       }
 
-      // Convert to webview URI
-      const webviewUri = this._view.webview.asWebviewUri(iconPath);
-      return webviewUri.toString();
-    } catch (error) {
-      console.warn("Failed to get file icon:", error);
-
-      // Final fallback - create a simple colored square with first letter
-      if (this._view) {
+      return this.view.webview.asWebviewUri(iconPath).toString();
+    } catch {
+      if (this.view) {
         const fileName = fileUri.path.split("/").pop() || "";
         const extension = fileName.split(".").pop()?.toLowerCase() || "";
         const testSvg = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -982,10 +797,7 @@ export class PerplexityCustomChatProvider
             .charAt(0)
             .toUpperCase()}</text>
         </svg>`;
-        const dataUri = `data:image/svg+xml;base64,${Buffer.from(
-          testSvg
-        ).toString("base64")}`;
-        return dataUri;
+        return `data:image/svg+xml;base64,${Buffer.from(testSvg).toString("base64")}`;
       }
     }
     return undefined;
@@ -995,49 +807,40 @@ export class PerplexityCustomChatProvider
     this.attachedContext = this.attachedContext.filter(
       (ctx) => ctx.id !== contextId
     );
-    this._view?.webview.postMessage({
+    this.view?.webview.postMessage({
       type: "contextAttached",
       context: this.attachedContext,
     });
   }
 
-  private _getHtmlForWebview(webview: vscode.Webview) {
+  private getHtmlForWebview(webview: vscode.Webview) {
     const nonce = getNonce();
-
-    // Get the local path to the webview assets
     const webviewPath = vscode.Uri.joinPath(
-      this._extensionUri,
+      this.extensionUri,
       "src",
       "chat-view"
     );
-
-    // Convert to webview URIs
     const styleUri = webview.asWebviewUri(
       vscode.Uri.joinPath(webviewPath, "styles.css")
     );
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(webviewPath, "script.js")
     );
-
     const htmlPath = vscode.Uri.joinPath(webviewPath, "index.html");
 
     try {
-      // Read the HTML template
       const htmlContent = fs.readFileSync(htmlPath.fsPath, "utf8");
-
-      // Replace placeholders with actual URIs
       return htmlContent
         .replace("{{CSS_URI}}", styleUri.toString())
         .replace("{{JS_URI}}", scriptUri.toString())
         .replace("{{NONCE}}", nonce);
-    } catch (error) {
-      console.error("Error loading webview files:", error);
-      // Fallback to inline content if files don't exist
-      return this._getFallbackHtml(webview, nonce);
+    } catch (err) {
+      console.error("Error loading webview files:", err);
+      return this.getFallbackHtml(webview, nonce);
     }
   }
 
-  private _getFallbackHtml(webview: vscode.Webview, nonce: string) {
+  private getFallbackHtml(webview: vscode.Webview, nonce: string) {
     return `<!DOCTYPE html>
     <html lang="en">
     <head>
