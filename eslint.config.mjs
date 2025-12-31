@@ -3,7 +3,6 @@ import tsParser from "@typescript-eslint/parser";
 
 /** @type {import('eslint').Linter.FlatConfig[]} */
 export default [
-  // TypeScript files
   {
     files: ["**/*.ts", "**/*.tsx"],
     languageOptions: {
@@ -19,7 +18,6 @@ export default [
       "@typescript-eslint": typescriptEslint,
     },
     rules: {
-      // TypeScript-specific rules
       "@typescript-eslint/naming-convention": [
         "warn",
         { selector: "default", format: ["camelCase"] },
@@ -38,16 +36,13 @@ export default [
         { argsIgnorePattern: "^_" },
       ],
       "@typescript-eslint/consistent-type-definitions": ["warn", "interface"],
-
-      // General best practices
       curly: "warn",
       eqeqeq: ["warn", "always"],
       "no-throw-literal": "warn",
       semi: ["warn", "always"],
-      "no-unused-vars": "off", // handled by TS rule
+      "no-unused-vars": "off",
     },
   },
-  // JavaScript files
   {
     files: ["**/*.js", "**/*.cjs", "**/*.mjs"],
     languageOptions: {
@@ -62,7 +57,6 @@ export default [
       "no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
     },
   },
-  // Common ignore patterns
   {
     ignores: ["node_modules", "dist", "out", "**/*.d.ts", ".vscode", ".github"],
   },

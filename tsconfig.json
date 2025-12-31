@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    /* Language and Environment */
     "target": "ES2022",
     "module": "Node16",
     "lib": ["ES2022"],
@@ -8,15 +7,11 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
-
-    /* Output */
     "outDir": "out",
     "rootDir": "src",
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
-
-    /* Strictness */
     "strict": true,
     "noImplicitAny": true,
     "noImplicitThis": true,
@@ -25,14 +20,10 @@
     "strictFunctionTypes": true,
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
-
-    /* Additional Checks */
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-
-    /* Project Structure */
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true
   },

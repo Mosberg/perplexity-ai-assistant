@@ -1,7 +1,9 @@
+import * as path from "path";
 import * as vscode from "vscode";
 import { PerplexityCustomChatProvider } from "./chatProvider";
 import { PerplexitySettingsProvider } from "./settingsProvider";
-import * as path from "path";
+
+let chatViewRegistered = false;
 
 export function activate(context: vscode.ExtensionContext) {
   vscode.commands.executeCommand("setContext", "perplexity-ai.enabled", true);
@@ -15,12 +17,16 @@ export function activate(context: vscode.ExtensionContext) {
     context
   );
 
-  const registration = vscode.window.registerWebviewViewProvider(
-    PerplexityCustomChatProvider.viewType,
-    chatProvider,
-    { webviewOptions: { retainContextWhenHidden: true } }
-  );
-  context.subscriptions.push(registration);
+  // Prevent double registration of the chat view
+  if (!chatViewRegistered) {
+    const registration = vscode.window.registerWebviewViewProvider(
+      PerplexityCustomChatProvider.viewType,
+      chatProvider,
+      { webviewOptions: { retainContextWhenHidden: true } }
+    );
+    context.subscriptions.push(registration);
+    chatViewRegistered = true;
+  }
 
   const commands = [
     vscode.commands.registerCommand("perplexity-ai.ask", () =>
@@ -515,7 +521,7 @@ Dev Dependencies: ${
         "README.md"
       );
       const readme = await vscode.workspace.fs.readFile(readmeUri);
-      readmeContent = readme.toString().substring(0, 1000);
+      readmeContent = readme.toString().substring(0, 2000);
     } catch {}
 
     const contextPrompt = `I'm working on a project with the following information:
@@ -528,7 +534,7 @@ ${fileList}
 
 ${
   readmeContent
-    ? `## README Content (first 1000 characters)\n${readmeContent}`
+    ? `## README Content (first 2000 characters)\n${readmeContent}`
     : ""
 }
 
@@ -559,14 +565,14 @@ async function queryPerplexityAPIStream(
 ): Promise<void> {
   const config = vscode.workspace.getConfiguration("perplexityAI");
   const model = config.get<string>("model", "sonar");
-  const maxTokens = config.get<number>("maxTokens", 1000);
+  const maxTokens = config.get<number>("maxTokens", 2000);
 
   try {
     const response = await fetch("https://api.perplexity.ai/chat/completions", {
       method: "POST",
       headers: {
         authorization: `Bearer ${apiKey}`,
-        "content-type": "application/json",
+        contentType: "application/json",
       },
       body: JSON.stringify({
         model,
@@ -631,14 +637,14 @@ async function queryPerplexityAPI(
 ): Promise<string> {
   const config = vscode.workspace.getConfiguration("perplexityAI");
   const model = config.get<string>("model", "sonar");
-  const maxTokens = config.get<number>("maxTokens", 1000);
+  const maxTokens = config.get<number>("maxTokens", 2000);
 
   try {
     const response = await fetch("https://api.perplexity.ai/chat/completions", {
       method: "POST",
       headers: {
         authorization: `Bearer ${apiKey}`,
-        "content-type": "application/json",
+        contentType: "application/json",
       },
       body: JSON.stringify({
         model,

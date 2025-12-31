@@ -32,6 +32,31 @@
   "main": "./out/extension.js",
   "activationEvents": [],
   "contributes": {
+    "configuration": {
+      "title": "Perplexity AI",
+      "properties": {
+        "perplexityAI.model": {
+          "type": "string",
+          "default": "llama-3.1-sonar-small-128k-online",
+          "description": "Default Perplexity AI model"
+        },
+        "perplexityAI.maxTokens": {
+          "type": "number",
+          "default": 2000,
+          "description": "Maximum tokens in response"
+        },
+        "perplexityAI.currentMode": {
+          "type": "string",
+          "enum": [
+            "ask",
+            "code",
+            "debug"
+          ],
+          "default": "ask",
+          "description": "Default chat mode"
+        }
+      }
+    },
     "viewsContainers": {
       "activitybar": [
         {
@@ -223,7 +248,7 @@
     "compile": "tsc -p ./",
     "watch": "tsc -w -p ./",
     "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src",
+    "lint": "eslint src --ext .ts",
     "test": "vscode-test"
   },
   "devDependencies": {

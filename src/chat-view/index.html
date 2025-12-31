@@ -16,8 +16,8 @@
   </head>
   <body>
     <div class="chat-container">
-      <div class="messages-container" id="messagesContainer">
-        <div class="welcome-message" id="welcomeMessage">
+      <main class="messages-container" id="messagesContainer">
+        <section class="welcome-message" id="welcomeMessage">
           <i
             class="codicon codicon-copilot"
             style="font-size: 32px; margin-block-end: 10px"
@@ -30,8 +30,8 @@
           <p>
             If API key is not set, please set it in the settings icon above.
           </p>
-        </div>
-        <div
+        </section>
+        <section
           class="typing-indicator"
           id="typingIndicator"
           style="display: none"
@@ -52,9 +52,9 @@
               <span class="typing-dot"></span>
             </span>
           </div>
-        </div>
-      </div>
-      <div class="bottom-container">
+        </section>
+      </main>
+      <footer class="bottom-container">
         <div class="context-area">
           <div class="chat-attached-context"></div>
         </div>
@@ -65,7 +65,7 @@
           autocomplete="off"
           spellcheck="false"
         ></textarea>
-        <div class="action-bar">
+        <nav class="action-bar">
           <div class="action-dropdowns">
             <select
               class="action-dropdown"
@@ -93,8 +93,8 @@
               id="sendBtn"
             ></a>
           </div>
-        </div>
-      </div>
+        </nav>
+      </footer>
     </div>
     <script nonce="{{NONCE}}" src="{{JS_URI}}"></script>
   </body>
