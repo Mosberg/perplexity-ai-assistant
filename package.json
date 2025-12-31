@@ -1,13 +1,13 @@
 {
   "name": "perplexity-ai-assistant",
   "displayName": "Perplexity AI Assistant",
-  "publisher": "CoreBytesInc",
+  "publisher": "Mosberg",
   "description": "AI-powered coding assistant using Perplexity, integrated into VS Code.",
   "version": "1.0.0",
   "icon": "assets/perplexity.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/CoreBytesInc/perplexity-ai-assistant"
+    "url": "https://github.com/Mosberg/perplexity-ai-assistant"
   },
   "engines": {
     "vscode": "^1.107.1"
