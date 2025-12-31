@@ -1,0 +1,243 @@
+{
+  "publisher": "CoreBytesInc",
+  "name": "perplexity-ai-assistant",
+  "displayName": "Perplexity AI Assistant",
+  "description": "AI powered coding assistant using Perplexity",
+  "version": "1.0.0",
+  "icon": "assets/perplexity.png",
+  "engines": {
+    "vscode": "^1.107.1"
+  },
+  "categories": [
+    "Snippets",
+    "AI",
+    "Programming Languages"
+  ],
+  "keywords": [
+    "AI",
+    "Assistant",
+    "Perplexity",
+    "ChatGPT",
+    "Coding",
+    "Code",
+    "Programming",
+    "Developer",
+    "Copilot",
+    "CoreBytes"
+  ],
+  "activationEvents": [],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CoreBytesInc/perplexity-ai-assistant"
+  },
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "perplexity-chat",
+          "title": "Perplexity AI",
+          "icon": "assets/perplexity.svg"
+        }
+      ]
+    },
+    "views": {
+      "perplexity-chat": [
+        {
+          "id": "perplexity-chatView",
+          "name": "Chat",
+          "icon": "$(comment-discussion)",
+          "type": "webview"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "perplexity-ai.ask",
+        "title": "Ask Question",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "perplexity-ai.newChat",
+        "title": "New Chat",
+        "icon": "$(add)"
+      },
+      {
+        "command": "perplexity-ai.askWithFileContext",
+        "title": "Ask with File Context",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "perplexity-ai.askStreaming",
+        "title": "Ask Question (Streaming)",
+        "icon": "$(output)"
+      },
+      {
+        "command": "perplexity-ai.explainCode",
+        "title": "Explain Selected Code",
+        "icon": "$(question)"
+      },
+      {
+        "command": "perplexity-ai.optimizeCode",
+        "title": "Optimize Code",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "perplexity-ai.findBugs",
+        "title": "Find Bugs",
+        "icon": "$(bug)"
+      },
+      {
+        "command": "perplexity-ai.generateComments",
+        "title": "Generate Comments",
+        "icon": "$(comment)"
+      },
+      {
+        "command": "perplexity-ai.refactorCode",
+        "title": "Refactor Code",
+        "icon": "$(symbol-method)"
+      },
+      {
+        "command": "perplexity-ai.askWithWorkspaceContext",
+        "title": "Ask with Workspace Context",
+        "icon": "$(folder)"
+      },
+      {
+        "command": "perplexity-ai.openSettings",
+        "title": "Open Settings",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "perplexity-ai.clearHistory",
+        "title": "Clear Chat History",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "perplexity-ai.chatHistory",
+        "title": "Chat History",
+        "icon": "$(history)"
+      }
+    ],
+    "submenus": [
+      {
+        "id": "perplexity-ai.submenu",
+        "label": "Perplexity AI"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "perplexity-ai.newChat",
+          "when": "view == perplexity-chatView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "perplexity-ai.chatHistory",
+          "when": "view == perplexity-chatView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "perplexity-ai.openSettings",
+          "when": "view == perplexity-chatView",
+          "group": "navigation@3"
+        },
+        {
+          "command": "perplexity-ai.clearHistory",
+          "when": "view == perplexity-chatView",
+          "group": "navigation@4"
+        }
+      ],
+      "editor/context": [
+        {
+          "submenu": "perplexity-ai.submenu",
+          "when": "editorTextFocus",
+          "group": "perplexity"
+        }
+      ],
+      "perplexity-ai.submenu": [
+        {
+          "command": "perplexity-ai.explainCode",
+          "when": "editorHasSelection",
+          "group": "1_code@1"
+        },
+        {
+          "command": "perplexity-ai.optimizeCode",
+          "when": "editorHasSelection",
+          "group": "1_code@2"
+        },
+        {
+          "command": "perplexity-ai.findBugs",
+          "when": "editorHasSelection",
+          "group": "1_code@3"
+        },
+        {
+          "command": "perplexity-ai.generateComments",
+          "when": "editorHasSelection",
+          "group": "1_code@4"
+        },
+        {
+          "command": "perplexity-ai.refactorCode",
+          "when": "editorHasSelection",
+          "group": "1_code@5"
+        },
+        {
+          "command": "perplexity-ai.ask",
+          "group": "2_general@1"
+        },
+        {
+          "command": "perplexity-ai.askStreaming",
+          "group": "2_general@2"
+        },
+        {
+          "command": "perplexity-ai.askWithFileContext",
+          "group": "2_general@3"
+        },
+        {
+          "command": "perplexity-ai.askWithWorkspaceContext",
+          "group": "2_general@4"
+        },
+        {
+          "command": "perplexity-ai.newChat",
+          "group": "3_chat@1"
+        },
+        {
+          "command": "perplexity-ai.clearHistory",
+          "group": "3_chat@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "perplexity-ai.ask"
+        },
+        {
+          "command": "perplexity-ai.askStreaming"
+        },
+        {
+          "command": "perplexity-ai.openSettings"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^25.0.3",
+    "@types/vscode": "^1.107.0",
+    "@typescript-eslint/eslint-plugin": "^8.51.0",
+    "@typescript-eslint/parser": "^8.51.0",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.7.4",
+    "prettier-eslint": "^16.4.2",
+    "typescript": "^5.9.3"
+  }
+}

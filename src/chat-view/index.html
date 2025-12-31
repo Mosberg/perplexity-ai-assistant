@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline' https:; font-src https:; script-src vscode-resource: 'unsafe-inline'; img-src vscode-resource: data: https:;"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Perplexity AI Chat</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/@vscode/codicons/dist/codicon.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{CSS_URI}}" />
+  </head>
+
+  <body>
+    <div class="chat-container">
+      <div class="messages-container" id="messagesContainer">
+        <div class="welcome-message" id="welcomeMessage">
+          <i
+            class="codicon codicon-copilot"
+            style="font-size: 32px; margin-block-end: 10px"
+          ></i>
+          <h3>Welcome to Perplexity AI</h3>
+          <p>
+            I can help you with coding questions, explanations, and general
+            inquiries. Start by asking me anything!
+          </p>
+          <p>
+            If API key is not set, please set it in the settings icon seen
+            above.
+          </p>
+          <!-- <div class="suggestions">
+          <button class="suggestion" onclick="insertSuggestion('Explain this code')">
+            <i class="codicon codicon-lightbulb"></i>
+            Explain this code
+          </button>
+          <button class="suggestion" onclick="insertSuggestion('Find bugs in my code')">
+            <i class="codicon codicon-bug"></i>
+            Find bugs in my code
+          </button>
+          <button class="suggestion" onclick="insertSuggestion('Optimize this function')">
+            <i class="codicon codicon-zap"></i>
+            Optimize this function
+          </button>
+          <button class="suggestion" onclick="insertSuggestion('Generate unit tests')">
+            <i class="codicon codicon-beaker"></i>
+            Generate unit tests
+          </button>
+        </div> -->
+        </div>
+        <div class="typing-indicator" id="typingIndicator">
+          <div class="message-header">
+            <div class="message-avatar assistant-avatar">
+              <i class="codicon codicon-loading codicon-modifier-spin"></i>
+            </div>
+            <div class="message-author">Perplexity AI</div>
+            <div class="message-status">
+              <i class="codicon codicon-clock" title="Processing"></i>
+            </div>
+          </div>
+          <div style="margin-block-start: 8px">
+            Thinking<span class="typing-dots">
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-container">
+        <div class="context-area">
+          <div class="chat-attached-context"></div>
+        </div>
+        <textarea id="messageInput" placeholder="Ask anything..."></textarea>
+        <div class="action-bar">
+          <div class="action-dropdowns">
+            <select class="action-dropdown" id="chatTypeSelect">
+              <option value="ask">Ask</option>
+            </select>
+            <select class="action-dropdown" id="modelSelect"></select>
+          </div>
+          <div
+            class="action-send"
+            role="button"
+            aria-disabled="false"
+            custom-hover="true"
+          >
+            <a
+              class="action-label"
+              role="button"
+              aria-label="Send (Enter)"
+              id="sendBtn"
+            ></a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script nonce="{{NONCE}}" src="{{JS_URI}}"></script>
+  </body>
+</html>
